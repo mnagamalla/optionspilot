@@ -1,0 +1,2656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script></head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Options Pilot — Personalized Options Trading</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #080d14;
+    --surface: #0d1726;
+    --surface2: #111c2e;
+    --border: #1a2840;
+    --border2: #2a4a6e;
+    --text: #c9d4e8;
+    --text-muted: #4a5a74;
+    --text-bright: #e2e8f0;
+    --accent: #0ea5e9;
+    --accent2: #7dd3fc;
+    --green: #34d399;
+    --green-bg: #052a1a;
+    --green-border: #065f46;
+    --amber: #fbbf24;
+    --amber-bg: #2a1a05;
+    --red: #f87171;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.5; }
+  button { font-family: var(--sans); cursor: pointer; }
+  input, select { font-family: var(--sans); }
+
+  /* Layout */
+  #app { display: flex; flex-direction: column; min-height: 100vh; }
+  header { border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 24px; gap: 0; background: var(--bg); position: sticky; top: 0; z-index: 10; }
+  .logo { display: flex; align-items: center; gap: 8px; margin-right: 28px; flex-shrink: 0; padding: 12px 0; }
+  .logo-icon { width: 30px; height: 30px; border-radius: 7px; background: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: #fff; }
+  .logo-name { font-weight: 600; font-size: 15px; color: var(--text-bright); }
+  nav { display: flex; gap: 0; overflow-x: auto; }
+  .tab { padding: 14px 18px; font-size: 13px; font-weight: 500; border: none; background: transparent; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all .2s; white-space: nowrap; }
+  .tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+  .tab:hover:not(.active) { color: var(--text); }
+  .header-status { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  .dot.offline { background: #ef4444; animation: none; }
+
+  main { padding: 24px; max-width: 1200px; }
+  h1 { font-size: 18px; font-weight: 600; color: var(--text-bright); margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+
+  /* Settings grid */
+  .settings-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .card:hover { border-color: var(--border2); }
+  .card-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 10px; }
+  input[type=number], select { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 14px; padding: 8px 10px; width: 100%; outline: none; transition: border-color .15s; }
+  input[type=number]:focus, select:focus { border-color: var(--accent); }
+  input[type=range] { -webkit-appearance: none; appearance: none; height: 4px; background: var(--border); border-radius: 2px; outline: none; width: 100%; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); cursor: pointer; }
+  .hint { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+
+  /* Tickers */
+  .ticker-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 6px; background: var(--surface2); border: 1px solid #1e3a5f; font-size: 12px; font-weight: 500; color: var(--accent2); cursor: pointer; transition: all .15s; }
+  .chip:hover .chip-x { color: var(--red); }
+  .chip-x { font-size: 10px; color: #4a6fa5; }
+  .add-row { display: flex; gap: 6px; }
+  .add-row select { flex: 1; font-size: 12px; padding: 6px 8px; }
+  .btn-add { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface2); color: var(--accent2); font-size: 12px; transition: all .15s; }
+  .btn-add:hover { background: var(--border); }
+
+  /* Scan button */
+  .scan-row { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+  .btn-scan { background: var(--accent); border: none; color: #fff; font-size: 14px; font-weight: 600; padding: 11px 32px; border-radius: 8px; transition: all .2s; letter-spacing: .2px; }
+  .btn-scan:hover:not(:disabled) { background: #38bdf8; transform: translateY(-1px); }
+  .btn-scan:active { transform: translateY(0); }
+  .btn-scan:disabled { background: var(--surface2); color: var(--text-muted); cursor: not-allowed; }
+  .scan-status { font-size: 12px; color: var(--green); }
+  .scan-status.error { color: var(--red); }
+
+  /* Summary */
+  .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+  .stat { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; }
+  .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 4px; }
+  .stat-value { font-family: var(--mono); font-size: 22px; font-weight: 600; color: var(--text-bright); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.blue { color: var(--accent2); }
+
+  /* Results header */
+  .results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .results-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .8px; }
+  .view-btns { display: flex; gap: 6px; }
+  .view-btn { padding: 6px 14px; font-size: 12px; font-weight: 500; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); transition: all .15s; }
+  .view-btn.active { background: var(--surface2); border-color: var(--border2); color: var(--accent2); }
+
+  /* Cards */
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; transition: all .2s; }
+  .result-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .card-ticker { font-size: 16px; font-weight: 600; color: var(--text-bright); }
+  .card-price { font-family: var(--mono); font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .badge { display: inline-block; padding: 3px 8px; border-radius: 5px; font-size: 11px; font-weight: 600; font-family: var(--mono); }
+  .badge-green { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .badge-blue { background: #0c1f3d; color: var(--accent2); border: 1px solid #1e40af; }
+  .badge-amber { background: var(--amber-bg); color: var(--amber); border: 1px solid #78350f; }
+  .stat-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .mini-stat { background: var(--bg); border-radius: 6px; padding: 8px 10px; }
+  .mini-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .6px; }
+  .mini-value { font-family: var(--mono); font-size: 15px; font-weight: 500; color: var(--text); margin-top: 2px; }
+  .badges-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .card-footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; }
+  .card-footer span { font-family: var(--mono); font-size: 11px; color: var(--text-muted); }
+
+  /* Table */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 14px; color: var(--text-muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 10px 14px; border-bottom: 1px solid #0d1726; font-family: var(--mono); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #0a1320; }
+  .td-ticker { font-family: var(--sans); font-weight: 600; color: var(--text-bright); }
+  .td-green { color: var(--green); font-weight: 600; }
+  .td-blue { color: var(--accent2); }
+
+ /* Journal */
+.journal-topbar { display:flex; align-items:center; gap:12px; margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+.journal-topbar h1 { margin:0; }
+.subtab-bar { display:flex; gap:0; margin-bottom:20px; border-bottom:1px solid var(--border); }
+.subtab { padding:10px 16px; font-size:13px; font-weight:500; border:none; background:transparent; color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent; transition:all .2s; }
+.subtab.active { color:var(--accent2); border-bottom-color:var(--accent2); }
+.subtab:hover:not(.active) { color:var(--text); }
+.sync-btn { padding:8px 18px; border-radius:7px; border:1px solid var(--border2); background:var(--surface2); color:var(--accent2); font-size:13px; font-weight:500; cursor:pointer; transition:all .15s; }
+.sync-btn:hover { background:var(--border); }
+.sync-btn:disabled { opacity:.5; cursor:not-allowed; }
+.acct-select { padding:7px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:13px; min-width:180px; }
+.pnl-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:24px; }
+.pnl-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
+.pnl-card-title { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.8px; margin-bottom:10px; }
+.pnl-card-total { font-family:var(--mono); font-size:20px; font-weight:600; margin-bottom:8px; }
+.pnl-card-total.pos { color:var(--green); }
+.pnl-card-total.neg { color:var(--red); }
+.pnl-sub { display:flex; justify-content:space-between; font-size:12px; font-family:var(--mono); color:var(--text-muted); margin-top:4px; }
+.pnl-sub span:last-child { color:var(--text); }
+.chart-section { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px; margin-bottom:20px; }
+.chart-section-title { font-size:12px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.8px; margin-bottom:14px; }
+.chart-wrap { position:relative; height:220px; }
+.win-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px; }
+.win-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; }
+.win-stat { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border); font-size:13px; }
+.win-stat:last-child { border-bottom:none; }
+.win-stat-label { color:var(--text-muted); }
+.win-stat-val { font-family:var(--mono); font-weight:500; }
+.alert-red    { color:var(--red); }
+.alert-yellow { color:var(--amber); }
+.alert-green  { color:var(--green); }
+.mfa-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); display:flex; align-items:center; justify-content:center; z-index:100; }
+.mfa-box { background:var(--surface); border:1px solid var(--border2); border-radius:12px; padding:28px; width:340px; }
+.mfa-title { font-size:16px; font-weight:600; color:var(--text-bright); margin-bottom:8px; }
+.mfa-sub { font-size:13px; color:var(--text-muted); margin-bottom:18px; }
+.mfa-input { width:100%; padding:10px 12px; border-radius:7px; border:1px solid var(--border2); background:var(--bg); color:var(--text); font-size:16px; font-family:var(--mono); letter-spacing:4px; text-align:center; outline:none; box-sizing:border-box; margin-bottom:14px; }
+.mfa-actions { display:flex; gap:10px; }
+.mfa-ok  { flex:1; padding:9px; border-radius:7px; border:none; background:var(--accent); color:#fff; font-size:14px; font-weight:600; cursor:pointer; }
+.mfa-cancel { padding:9px 16px; border-radius:7px; border:1px solid var(--border); background:transparent; color:var(--text-muted); font-size:14px; cursor:pointer; }
+.sync-ts { font-size:11px; color:var(--text-muted); font-family:var(--mono); }
+
+  /* Empty / error */
+  .empty { text-align: center; padding: 50px 20px; border: 1px dashed var(--border); border-radius: 10px; color: var(--text-muted); }
+  .coming-soon { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; text-align: center; color: var(--text-muted); }
+  .coming-soon h2 { font-size: 16px; color: var(--text-bright); margin: 12px 0 6px; }
+
+  /* Spinner */
+  .spin { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,.2); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+
+  /* API url badge */
+  .api-badge { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; background: var(--surface2); border: 1px solid var(--border); font-family: var(--mono); font-size: 11px; color: var(--text-muted); }
+  .elapsed { font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
+  
+  #accountValueBadge [title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text);
+  white-space: nowrap;
+  z-index: 20;
+  margin-top: 4px;
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">OP</div>
+      <div class="logo-name">Options Pilot</div>
+    </div>
+    <nav id="nav"></nav>
+    <div id="accountValueBadge"
+  style="display:none;align-items:center;gap:6px;
+         padding:4px 12px;border-radius:7px;
+         background:var(--surface2);border:1px solid var(--border);
+         margin-left:16px;cursor:default">
+    </div>
+    <div class="header-status">
+      <div class="dot" id="statusDot"></div>
+      <span style="font-size:11px;color:var(--text-muted)" id="statusText">Checking API...</span>
+    </div>
+  </header>
+  <main id="main"></main>
+</div>
+
+<script>
+// ─── Config ──────────────────────────────────────────────────────────────────
+const API_BASE = 'http://localhost:8000';
+
+const ALL_TICKERS = ['AMD','PLTR','NFLX','AVGO','NVDA','SOFI','EBAY','META','MSFT','AAPL','GOOGL','AMZN'];
+
+// ─── State ───────────────────────────────────────────────────────────────────
+const state = {
+  tab: 'csp',
+  view: 'cards',
+  tickers: ['AMD','PLTR','NFLX','AVGO','NVDA'],
+  collateral: 50000,
+  dteMin: 30,
+  dteMax: 45,
+  maxResults: 5,
+  safety: 'balanced',
+  scanning: false,
+  scanned: false,
+  results: [],
+  error: null,
+  elapsed: null,
+  apiOnline: false,
+  ccTickers: ['AMD', 'PLTR', 'NFLX', 'AVGO', 'NVDA'],
+  ccDteMin: 30,
+  ccDteMax: 45,
+  ccMaxResults: 5,
+  ccSafety: 'balanced',
+  ccScanning: false,
+  ccScanned: false,
+  ccResults: [],
+  ccError: null,
+  ccElapsed: null,
+  ccView: 'cards',
+  // ── Journal ──
+  journalAccountId:  null,      // null = All Accounts
+  journalAccounts:   [],
+  journalSubTab:     'dashboard',
+  journalSyncing:    false,
+  journalSyncMsg:    null,
+  journalMfaOpen:    false,
+  journalMfaCode:    '',
+  journalSummary:    null,
+  journalMonthly:    [],
+  journalCumulative: [],
+  journalWinRate:    null,
+  journalTrades:     [],
+  journalLots:       [],
+  journalCycles:     [],
+  journalRolls:      [],
+  journalPendingAssignments: [],
+  journalAssignmentPrompt:   false,
+  // ── Drill down ──
+  journalDrilldownPeriod: null,   // 'week' | 'month' | 'ytd' | 'all_time' | null
+  journalDrilldownData:   null,
+  journalDrilldownLoading: false,
+  journalPositionTicker: null,
+  journalPositionData:   null,
+  journalPositionLoading: false,
+  // Unusual Flow state
+  flowUniverse:       'watchlist',
+  flowVolOI:          1.5,
+  flowMinPremium:     25000,
+  flowDteMin:         0,
+  flowDteMax:         60,
+  flowOptionType:     'both',
+  flowExtraTickers:   '',
+  flowScanning:       false,
+  flowScanned:        false,
+  flowResults:        [],
+  flowError:          null,
+  flowElapsed:        null,
+  flowView:           'table',
+  // Ask
+  askQuestion:   '',
+  askLoading:    false,
+  askAnswer:     null,
+  askFollowUps:  [],
+  askError:      null,
+  askHistory:    [],   // stores previous Q&A pairs this session
+  //rename account
+  editingAccountId: null,   // which account is being renamed
+  editingAccountName: '',   // current edit value
+  //earnings data for charts
+  cspEarnings:  [],
+  ccEarnings:   [],
+  //position sizing
+  sizingStrike:    0,
+  sizingPremium:   0,
+  sizingContracts: 1,
+  sizingShow:      false,
+  //account value
+  journalAccountValue: null,
+  journalValueLoading: false,
+};
+
+// ─── API health check ─────────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2000) });
+    state.apiOnline = r.ok;
+  } catch {
+    state.apiOnline = false;
+  }
+  renderHeader();
+}
+
+// ─── Scan ─────────────────────────────────────────────────────────────────────
+async function runScan() {
+  if (state.scanning) return;
+  state.scanning = true;
+  state.error = null;
+  renderMain();
+
+  const body = {
+    tickers: state.tickers,
+    dte_min: state.dteMin,
+    dte_max: state.dteMax,
+    max_results: state.maxResults,
+    collateral_budget: state.collateral,
+    safety: state.safety,
+  };
+
+  try {
+    const resp = await fetch(`${API_BASE}/scan/csp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.detail || `HTTP ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    state.results = data.results;
+    state.elapsed = data.elapsed_ms;
+    state.scanned = true;
+    state.error = null;
+    state.apiOnline = true;
+  } catch (e) {
+    state.error = `API error: ${e.message}. Is the server running at ${API_BASE}?`;
+    state.scanned = false;
+  } finally {
+    state.scanning = false;
+    renderMain();
+    renderHeader();
+  }
+}
+async function runCCScan() {
+  if (state.ccScanning) return;
+  state.ccScanning = true;
+  state.ccError = null;
+  renderMain();
+
+  const body = {
+    tickers: state.ccTickers,
+    dte_min: state.ccDteMin,
+    dte_max: state.ccDteMax,
+    max_results: state.ccMaxResults,
+    collateral_budget: state.collateral,
+    safety: state.ccSafety,
+  };
+
+  try {
+    const resp = await fetch(`${API_BASE}/scan/cc`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    state.ccResults = data.results;
+    state.ccElapsed = data.elapsed_ms;
+    state.ccScanned = true;
+    state.ccError = null;
+  } catch (e) {
+    state.ccError = `API error: ${e.message}`;
+    state.ccScanned = false;
+  } finally {
+    state.ccScanning = false;
+    renderMain();
+  }
+}
+
+async function fetchEarnings(tickers, tab) {
+  if (!tickers.length) return;
+  try {
+    const r    = await fetch(`${API_BASE}/journal/earnings?tickers=${tickers.join(',')}`);
+    const data = await r.json();
+    if (tab === 'csp') state.cspEarnings = data;
+    else               state.ccEarnings  = data;
+    renderMain();
+  } catch { }
+}
+
+async function runFlowScan() {
+  if (state.flowScanning) return;
+  state.flowScanning = true;
+  state.flowError    = null;
+  renderMain();
+
+  const p = new URLSearchParams({
+    universe:          state.flowUniverse,
+    vol_oi_threshold:  state.flowVolOI,
+    min_total_premium: state.flowMinPremium,
+    dte_min:           state.flowDteMin,
+    dte_max:           state.flowDteMax,
+    option_type:       state.flowOptionType,
+    extra_tickers:     state.flowExtraTickers,
+    max_results:       50,
+  });
+
+  try {
+    const resp = await fetch(`${API_BASE}/flow/scan?${p}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    state.flowResults  = data.results;
+    state.flowScanned  = true;
+    state.flowError    = null;
+    state.flowElapsed  = data.elapsed_ms || null;
+  } catch (e) {
+    state.flowError   = `Scan failed: ${e.message}`;
+    state.flowScanned = false;
+  } finally {
+    state.flowScanning = false;
+    renderMain();
+  }
+}
+
+async function submitQuestion(question) {
+  if (!question.trim() || state.askLoading) return;
+  state.askLoading  = true;
+  state.askAnswer   = null;
+  state.askFollowUps = [];
+  state.askError    = null;
+  state.askQuestion = question;
+  renderMain();
+
+  const aid = state.journalAccountId
+    ? state.journalAccountId : null;
+
+  try {
+    const resp = await fetch(`${API_BASE}/ask/`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        question:   question,
+        account_id: aid,
+      }),
+    });
+    if (!resp.ok) {
+  const err = await resp.json();
+  throw new Error(err.detail || `HTTP ${resp.status}`);
+}
+    const data = await resp.json();
+
+    state.askAnswer    = data.answer;
+    state.askFollowUps = data.follow_ups || [];
+    // Add to session history
+    state.askHistory.unshift({
+      question: question,
+      answer:   data.answer,
+    });
+  } catch (e) {
+    state.askError = `Error: ${e.message}`;
+  } finally {
+    state.askLoading  = false;
+    state.askQuestion = '';
+    renderMain();
+  }
+}
+
+// ─── Journal API ──────────────────────────────────────────────────────────────
+
+async function fetchJournalAccounts() {
+  try {
+    const r = await fetch(`${API_BASE}/journal/accounts`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    state.journalAccounts = Array.isArray(data) ? data : [];
+  } catch { state.journalAccounts = []; }
+}
+
+async function loadJournalDashboard() {
+  const aid = state.journalAccountId ? `?account_id=${state.journalAccountId}` : '';
+  try {
+    const [sum, mon, cum, wr] = await Promise.all([
+      fetch(`${API_BASE}/journal/pnl/summary${aid}`).then(r => r.json()),
+      fetch(`${API_BASE}/journal/pnl/monthly${aid}`).then(r => r.json()),
+      fetch(`${API_BASE}/journal/pnl/cumulative${aid}`).then(r => r.json()),
+      fetch(`${API_BASE}/journal/winrate${aid}`).then(r => r.json()),
+    ]);
+    state.journalSummary    = sum;
+    state.journalMonthly    = mon;
+    state.journalCumulative = cum;
+    state.journalWinRate    = wr;
+  } catch (e) {
+    console.error('Journal dashboard load failed:', e);
+  }
+}
+
+async function loadJournalTrades() {
+  const aid = state.journalAccountId ? `account_id=${state.journalAccountId}&` : '';
+  try {
+    const r = await fetch(`${API_BASE}/journal/trades?${aid}`);
+    state.journalTrades = await r.json();
+  } catch { state.journalTrades = []; }
+}
+
+async function loadJournalLots() {
+  const aid = state.journalAccountId ? `?account_id=${state.journalAccountId}` : '';
+  try {
+    const r = await fetch(`${API_BASE}/journal/lots${aid}`);
+    state.journalLots = await r.json();
+  } catch { state.journalLots = []; }
+}
+
+async function loadJournalCycles() {
+  const aid = state.journalAccountId ? `?account_id=${state.journalAccountId}` : '';
+  try {
+    const r = await fetch(`${API_BASE}/journal/cycles${aid}`);
+    state.journalCycles = await r.json();
+  } catch { state.journalCycles = []; }
+}
+
+async function loadJournalRolls() {
+  const aid = state.journalAccountId ? `?account_id=${state.journalAccountId}` : '';
+  try {
+    const r = await fetch(`${API_BASE}/journal/rolls${aid}`);
+    state.journalRolls = await r.json();
+  } catch { state.journalRolls = []; }
+}
+
+async function loadDrilldown(period) {
+  if (state.journalDrilldownPeriod === period) {
+    // toggle off if clicking same card again
+    state.journalDrilldownPeriod = null;
+    state.journalDrilldownData   = null;
+    renderMain();
+    if (state.journalSubTab === 'dashboard') renderJournalCharts();
+    return;
+  }
+  state.journalDrilldownPeriod  = period;
+  state.journalDrilldownLoading = true;
+  state.journalDrilldownData    = null;
+  renderMain();
+  if (state.journalSubTab === 'dashboard') renderJournalCharts();
+
+  const aid = state.journalAccountId ? `&account_id=${state.journalAccountId}` : '';
+  try {
+    const r    = await fetch(`${API_BASE}/journal/pnl/drilldown?period=${period}${aid}`);
+    const data = await r.json();
+    state.journalDrilldownData    = data;
+    state.journalDrilldownLoading = false;
+  } catch (e) {
+    state.journalDrilldownLoading = false;
+    state.journalDrilldownData    = null;
+  }
+  renderMain();
+  if (state.journalSubTab === 'dashboard') renderJournalCharts();
+}
+
+async function loadTickerPosition(ticker) {
+  if (state.journalPositionTicker === ticker) {
+    state.journalPositionTicker = null;
+    state.journalPositionData   = null;
+    renderMain();
+    if (state.journalSubTab === 'dashboard') renderJournalCharts();
+    return;
+  }
+  state.journalPositionTicker   = ticker;
+  state.journalPositionLoading  = true;
+  state.journalPositionData     = null;
+  renderMain();
+  if (state.journalSubTab === 'dashboard') renderJournalCharts();
+
+  const aid = state.journalAccountId ? `&account_id=${state.journalAccountId}` : '';
+  try {
+    const r    = await fetch(`${API_BASE}/journal/positions?ticker=${ticker}${aid}`);
+    const data = await r.json();
+    state.journalPositionData    = data;
+    state.journalPositionLoading = false;
+  } catch {
+    state.journalPositionLoading = false;
+  }
+  renderMain();
+  if (state.journalSubTab === 'dashboard') renderJournalCharts();
+}
+
+async function loadJournalSubTab() {
+  if (state.journalSubTab === 'dashboard') await loadJournalDashboard();
+  else if (state.journalSubTab === 'trades')  await loadJournalTrades();
+  else if (state.journalSubTab === 'basis')   await loadJournalLots();
+  else if (state.journalSubTab === 'cycles')  await loadJournalCycles();
+  else if (state.journalSubTab === 'rolls')     await loadJournalRolls();
+  renderMain();
+  if (state.journalSubTab === 'dashboard') renderJournalCharts();
+}
+
+async function syncRobinhood(mfaCode) {
+  state.journalSyncing = true;
+  state.journalSyncMsg = null;
+  state.journalMfaOpen = false;
+  renderMain();
+  try {
+    const resp = await fetch(`${API_BASE}/journal/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mfa_code: mfaCode || null }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || `HTTP ${resp.status}`);
+    state.journalSyncMsg = { ok: true, text: data.message };
+    await fetchJournalAccounts();
+    await loadJournalSubTab();
+    await checkPendingAssignments();
+  } catch (e) {
+    state.journalSyncMsg = { ok: false, text: `Sync failed: ${e.message}` };
+  } finally {
+    state.journalSyncing = false;
+    renderMain();
+    if (state.journalSubTab === 'dashboard') renderJournalCharts();
+    if (state.tab === 'journal') fetchAccountValue();
+  }
+}
+
+async function checkPendingAssignments() {
+  const aid = state.journalAccountId ? `?account_id=${state.journalAccountId}` : '';
+  try {
+    const r    = await fetch(`${API_BASE}/journal/assignments/pending${aid}`);
+    const data = await r.json();
+    state.journalPendingAssignments = data;
+    if (data.length > 0) {
+      state.journalAssignmentPrompt = true;
+      renderMain();
+    }
+  } catch { }
+}
+
+async function fetchAccountValue() {
+  state.journalValueLoading = true;
+  renderHeader();
+  const aid = state.journalAccountId
+    ? `?account_id=${state.journalAccountId}` : '';
+  try {
+    const r    = await fetch(`${API_BASE}/journal/account-value${aid}`);
+    const data = await r.json();
+    state.journalAccountValue = data;
+  } catch {
+    state.journalAccountValue = null;
+  } finally {
+    state.journalValueLoading = false;
+    renderHeader();
+  }
+}
+
+async function confirmAssignments() {
+  try {
+    const resp = await fetch(`${API_BASE}/journal/assignments/confirm`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ assignments: state.journalPendingAssignments }),
+    });
+    const data = await resp.json();
+    state.journalAssignmentPrompt      = false;
+    state.journalPendingAssignments    = [];
+    state.journalSyncMsg = {
+      ok:   true,
+      text: `✓ ${data.created} stock lot(s) created from assignments`
+    };
+    await loadJournalSubTab();
+  } catch (e) {
+    state.journalSyncMsg = { ok: false, text: `Failed: ${e.message}` };
+  }
+  renderMain();
+  if (state.journalSubTab === 'dashboard') renderJournalCharts();
+}
+
+function dismissAssignments() {
+  state.journalAssignmentPrompt   = false;
+  state.journalPendingAssignments = [];
+  renderMain();
+}
+
+// ─── Render helpers ───────────────────────────────────────────────────────────
+function fmt(n, d = 2) { return Number(n).toFixed(d); }
+function fmtPrice(n) { return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmtUSD(n) { return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
+
+const TABS = [
+  { id: 'csp', label: 'Cash-Secured Puts' },
+  { id: 'cc', label: 'Covered Calls' },
+  { id: 'flow', label: 'Unusual Flow' },
+  { id: 'journal', label: 'Journal' },
+  { id: 'ask', label: 'Ask Options Pilot' },
+];
+
+function renderHeader() {
+  document.getElementById('nav').innerHTML = TABS.map(t =>
+    `<button class="tab ${state.tab === t.id ? 'active' : ''}" onclick="setTab('${t.id}')">${t.label}</button>`
+  ).join('');
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  dot.className = 'dot' + (state.apiOnline ? '' : ' offline');
+  txt.textContent = state.apiOnline ? 'API online · localhost:8000' : 'API offline';
+
+  // Account value — only show on journal tab
+  const valEl = document.getElementById('accountValueBadge');
+  if (valEl) {
+    const v = state.journalAccountValue;
+    if (state.tab === 'journal' && v) {
+      const cls   = v.total_value >= 0 ? 'var(--green)' : 'var(--red)';
+      const sign  = v.total_value >= 0 ? '+' : '';
+      valEl.style.display = 'flex';
+      valEl.innerHTML = `
+        <span style="font-size:11px;color:var(--text-muted)">Est. Value</span>
+        <span style="font-family:var(--mono);font-size:13px;font-weight:600;
+                     color:${cls}">
+          ${state.journalValueLoading ? '...' : sign + '$' + fmtPrice(Math.abs(v.total_value))}
+        </span>
+        <span style="font-size:10px;color:var(--text-muted)"
+              title="Stocks: $${fmtPrice(v.stock_value)} | Options: $${fmtPrice(v.options_value)}">
+          ⓘ
+        </span>`;
+    } else {
+      valEl.style.display = 'none';
+    }
+  }
+}
+
+function renderMain() {
+  const main = document.getElementById('main');
+  if (state.tab === 'csp') {
+    main.innerHTML = renderCSP();
+    attachListeners();
+  } else if (state.tab === 'cc') {
+    main.innerHTML = renderCC();
+    attachListeners();
+  } else if (state.tab === 'journal') {
+    main.innerHTML = renderJournal();
+    attachListeners();
+    if (state.journalSubTab === 'dashboard') renderJournalCharts();
+  } else if (state.tab === 'flow') { 
+    main.innerHTML = renderFlow();
+    attachListeners();
+  } else if (state.tab === 'ask') {
+    main.innerHTML = renderAsk();
+    attachListeners();
+  } else {
+    main.innerHTML = renderComingSoon();
+  }
+}
+
+function renderCSP() {
+  const { tickers, collateral, dteMin, dteMax, maxResults, safety, scanning, scanned, results, error, elapsed } = state;
+  const avgYield = results.length ? results.reduce((a, r) => a + r.annual_yield_pct, 0) / results.length : 0;
+  const avgRoi = results.length ? results.reduce((a, r) => a + r.roi_pct, 0) / results.length : 0;
+  const availTickers = ALL_TICKERS.filter(t => !tickers.includes(t));
+
+  return `
+    <h1>Cash-Secured Put Scanner</h1>
+    <p class="subtitle">Configure collateral, tickers, and DTE window — we surface the cleanest CSP candidates.</p>
+
+    <div class="settings-grid">
+      <div class="card">
+        <div class="card-label">Collateral Budget ($)</div>
+        <input type="number" id="collateral" value="${collateral}" min="500" step="500" />
+        <div class="hint">Max collateral per scan ($10k free tier)</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Universe (Tickers)</div>
+        <div class="ticker-chips" id="tickerChips">
+          ${tickers.map(t => `<span class="chip" data-ticker="${t}">${t} <span class="chip-x">✕</span></span>`).join('')}
+        </div>
+        <div class="add-row">
+          <select id="tickerSelect">
+            <option value="">+ Add ticker</option>
+            ${availTickers.map(t => `<option value="${t}">${t}</option>`).join('')}
+          </select>
+          <button class="btn-add" onclick="addTicker()">Add</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Safety Preference</div>
+        <select id="safety">
+          <option value="conservative" ${safety === 'conservative' ? 'selected' : ''}>Conservative — 10%+ OTM cushion</option>
+          <option value="balanced" ${safety === 'balanced' ? 'selected' : ''}>Balanced — 8%+ OTM cushion</option>
+          <option value="aggressive" ${safety === 'aggressive' ? 'selected' : ''}>Aggressive — 5%+ OTM cushion</option>
+        </select>
+        <div class="hint" style="color:${safety === 'aggressive' ? 'var(--amber)' : 'var(--text-muted)'}">
+          ${safety === 'aggressive' ? '⚠ Higher assignment risk — strike closer to spot' : 'Recommended: Balanced or Conservative'}
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-grid">
+      <div class="card">
+        <div class="card-label">DTE Min</div>
+        <input type="number" id="dteMin" value="${dteMin}" min="1" max="180" />
+        <div class="hint">Shorter = faster decay, more active management</div>
+      </div>
+      <div class="card">
+        <div class="card-label">DTE Max</div>
+        <input type="number" id="dteMax" value="${dteMax}" min="1" max="365" />
+        <div class="hint">30–45 days is the theta sweet spot</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Max Results (per ticker)</div>
+        <input type="number" id="maxResults" value="${maxResults}" min="1" max="20" />
+        <div class="hint">Sorted by Annual Yield % descending</div>
+      </div>
+    </div>
+    ${renderPositionSizer('csp')}
+    ${renderEarningsBar(state.cspEarnings, state.dteMin, state.dteMax)}
+    <div class="scan-row">
+      <button class="btn-scan" onclick="runScan()" ${scanning ? 'disabled' : ''}>
+        ${scanning ? '<span class="spin"></span>Scanning...' : '▶ Run Scan'}
+      </button>
+      ${error ? `<span class="scan-status error">${error}</span>` : ''}
+      ${scanned && !error ? `
+        <span class="scan-status">✓ ${results.length} candidates found</span>
+        ${elapsed !== null ? `<span class="elapsed">${elapsed}ms</span>` : ''}
+      ` : ''}
+      <div style="margin-left:auto">
+        <div class="api-badge">POST ${API_BASE}/scan/csp</div>
+      </div>
+    </div>
+
+    ${scanned && results.length > 0 ? `
+    <div class="summary-grid">
+      <div class="stat"><div class="stat-label">Candidates</div><div class="stat-value">${results.length}</div></div>
+      <div class="stat"><div class="stat-label">Avg Annual Yield</div><div class="stat-value green">${fmt(avgYield)}%</div></div>
+      <div class="stat"><div class="stat-label">Avg ROI / Contract</div><div class="stat-value blue">${fmt(avgRoi)}%</div></div>
+    </div>
+    <div class="results-header">
+      <div class="results-label">Candidates</div>
+      <div class="view-btns">
+        <button class="view-btn ${state.view === 'cards' ? 'active' : ''}" onclick="setView('cards')">Cards</button>
+        <button class="view-btn ${state.view === 'table' ? 'active' : ''}" onclick="setView('table')">Table</button>
+      </div>
+    </div>
+    ${state.view === 'cards' ? renderCards(results) : renderTable(results)}
+    ` : scanned && results.length === 0 && !error ? `
+    <div class="empty">
+      <div style="font-size:28px;margin-bottom:10px">∅</div>
+      <div>No candidates matched your filters. Try widening DTE or lowering safety cushion.</div>
+    </div>
+    ` : !scanned && !error ? `
+    <div class="empty">
+      <div style="margin-bottom:8px">Configure your settings and click <strong style="color:var(--accent2)">Run Scan</strong></div>
+      <div style="font-size:12px">Results: ticker · strike · premium · DTE · cushion% · ROI% · annual yield%</div>
+    </div>
+    ` : ''}
+  `;
+}
+
+function renderCC() {
+  const { ccTickers, ccDteMin, ccDteMax, ccMaxResults, ccSafety,
+          ccScanning, ccScanned, ccResults, ccError, ccElapsed, ccView } = state;
+
+  const avgYield = ccResults.length
+    ? ccResults.reduce((a, r) => a + r.annual_yield_pct, 0) / ccResults.length : 0;
+  const avgRoi = ccResults.length
+    ? ccResults.reduce((a, r) => a + r.roi_pct, 0) / ccResults.length : 0;
+  const availTickers = ALL_TICKERS.filter(t => !ccTickers.includes(t));
+
+  return `
+    <h1>Covered Call Scanner</h1>
+    <p class="subtitle">Scan for OTM call opportunities on stocks you hold. Each contract requires 100 shares.</p>
+
+    <div class="settings-grid">
+      <div class="card">
+        <div class="card-label">Universe (Tickers you hold)</div>
+        <div class="ticker-chips" id="ccTickerChips">
+          ${ccTickers.map(t => `<span class="chip" data-ticker="${t}" data-tab="cc">${t} <span class="chip-x">✕</span></span>`).join('')}
+        </div>
+        <div class="add-row">
+          <select id="ccTickerSelect">
+            <option value="">+ Add ticker</option>
+            ${availTickers.map(t => `<option value="${t}">${t}</option>`).join('')}
+          </select>
+          <button class="btn-add" onclick="addCCTicker()">Add</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Safety Preference</div>
+        <select id="ccSafety">
+          <option value="conservative" ${ccSafety === 'conservative' ? 'selected' : ''}>Conservative — 10%+ OTM</option>
+          <option value="balanced" ${ccSafety === 'balanced' ? 'selected' : ''}>Balanced — 8%+ OTM</option>
+          <option value="aggressive" ${ccSafety === 'aggressive' ? 'selected' : ''}>Aggressive — 5%+ OTM</option>
+        </select>
+        <div class="hint" style="color:${ccSafety === 'aggressive' ? 'var(--amber)' : 'var(--text-muted)'}">
+          ${ccSafety === 'aggressive' ? '⚠ Higher assignment risk — strike closer to spot' : 'Recommended: Balanced or Conservative'}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Max Results (per ticker)</div>
+        <input type="number" id="ccMaxResults" value="${ccMaxResults}" min="1" max="20" />
+        <div class="hint">Sorted by Annual Yield % descending</div>
+      </div>
+    </div>
+
+    <div class="settings-grid">
+      <div class="card">
+        <div class="card-label">DTE Min</div>
+        <input type="number" id="ccDteMin" value="${ccDteMin}" min="1" max="180" />
+        <div class="hint">Shorter = faster decay, more active management</div>
+      </div>
+      <div class="card">
+        <div class="card-label">DTE Max</div>
+        <input type="number" id="ccDteMax" value="${ccDteMax}" min="1" max="365" />
+        <div class="hint">30–45 days is the theta sweet spot</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Info</div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
+          Collateral = 100 shares × spot price.<br/>
+          ROI is calculated against share cost basis.<br/>
+          Strike must be above current price.
+        </div>
+      </div>
+    </div>
+    ${renderPositionSizer('cc')}
+    ${renderEarningsBar(state.ccEarnings, state.ccDteMin, state.ccDteMax)}
+
+    <div class="scan-row">
+      <button class="btn-scan" onclick="runCCScan()" ${ccScanning ? 'disabled' : ''}>
+        ${ccScanning ? '<span class="spin"></span>Scanning...' : '▶ Run Scan'}
+      </button>
+      ${ccError ? `<span class="scan-status error">${ccError}</span>` : ''}
+      ${ccScanned && !ccError ? `
+        <span class="scan-status">✓ ${ccResults.length} candidates found</span>
+        ${ccElapsed !== null ? `<span class="elapsed">${ccElapsed}ms</span>` : ''}
+      ` : ''}
+      <div style="margin-left:auto">
+        <div class="api-badge">POST ${API_BASE}/scan/cc</div>
+      </div>
+    </div>
+
+    ${ccScanned && ccResults.length > 0 ? `
+    <div class="summary-grid">
+      <div class="stat"><div class="stat-label">Candidates</div><div class="stat-value">${ccResults.length}</div></div>
+      <div class="stat"><div class="stat-label">Avg Annual Yield</div><div class="stat-value green">${fmt(avgYield)}%</div></div>
+      <div class="stat"><div class="stat-label">Avg ROI / Contract</div><div class="stat-value blue">${fmt(avgRoi)}%</div></div>
+    </div>
+    <div class="results-header">
+      <div class="results-label">Candidates</div>
+      <div class="view-btns">
+        <button class="view-btn ${ccView === 'cards' ? 'active' : ''}" onclick="setCCView('cards')">Cards</button>
+        <button class="view-btn ${ccView === 'table' ? 'active' : ''}" onclick="setCCView('table')">Table</button>
+      </div>
+    </div>
+    ${ccView === 'cards' ? renderCCCards(ccResults) : renderCCTable(ccResults)}
+    ` : ccScanned && ccResults.length === 0 && !ccError ? `
+    <div class="empty">
+      <div style="font-size:28px;margin-bottom:10px">∅</div>
+      <div>No candidates found. Try widening DTE range or lowering the OTM cushion.</div>
+    </div>
+    ` : !ccScanned && !ccError ? `
+    <div class="empty">
+      <div style="margin-bottom:8px">Select the tickers you hold and click <strong style="color:var(--accent2)">Run Scan</strong></div>
+      <div style="font-size:12px">Results: ticker · strike · premium · DTE · OTM% · ROI% · annual yield%</div>
+    </div>
+    ` : ''}
+  `;
+}
+
+function renderFlow() {
+  const { flowUniverse, flowVolOI, flowMinPremium, flowDteMin, flowDteMax,
+          flowOptionType, flowExtraTickers, flowScanning, flowScanned,
+          flowResults, flowError, flowView } = state;
+
+  const sentimentBadge = s =>
+    s === 'bullish'
+      ? `<span class="badge badge-green">bullish</span>`
+      : `<span class="badge" style="background:#2a0a0a;color:var(--red);
+           border:1px solid #7f1d1d">bearish</span>`;
+
+  const signalBadge = signals => signals.map(s =>
+    s === 'spike'
+      ? `<span class="badge badge-amber">spike</span>`
+      : `<span class="badge badge-blue">block</span>`
+  ).join(' ');
+
+  const totalBulls    = flowResults.filter(r => r.sentiment === 'bullish').length;
+  const totalBears    = flowResults.filter(r => r.sentiment === 'bearish').length;
+  const totalNotional = flowResults.reduce((a, r) => a + r.total_premium, 0);
+
+  const groupByTicker = results => results.reduce((acc, r) => {
+    if (!acc[r.ticker]) acc[r.ticker] = [];
+    acc[r.ticker].push(r);
+    return acc;
+  }, {});
+
+  return `
+  <h1>Unusual Flow Scanner</h1>
+  <p class="subtitle">Detect volume spikes and block trades — follow the smart money.</p>
+
+  <div class="settings-grid">
+    <div class="card">
+      <div class="card-label">Universe</div>
+      <select id="flowUniverse">
+        <option value="watchlist" ${flowUniverse === 'watchlist' ? 'selected' : ''}>
+          Watchlist only (AMD, PLTR, NVDA…)</option>
+        <option value="broader"   ${flowUniverse === 'broader'   ? 'selected' : ''}>
+          Broader market (S&P100 + ETFs)</option>
+        <option value="both"      ${flowUniverse === 'both'      ? 'selected' : ''}>
+          Both universes</option>
+      </select>
+      <div style="margin-top:8px">
+        <input type="text" id="flowExtraTickers"
+          placeholder="Extra tickers e.g. COIN,HOOD,ARM"
+          value="${flowExtraTickers}"
+          style="background:var(--bg);border:1px solid var(--border);
+                 border-radius:6px;color:var(--text);font-size:13px;
+                 padding:7px 10px;width:100%;outline:none;
+                 text-transform:uppercase;box-sizing:border-box" />
+        <div class="hint">Comma-separated, added on top of universe</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Volume / OI Threshold</div>
+      <select id="flowVolOI">
+        <option value="1.5" ${flowVolOI == 1.5 ? 'selected' : ''}>1.5x — Moderate spike</option>
+        <option value="3"   ${flowVolOI == 3   ? 'selected' : ''}>3x — Strong spike</option>
+        <option value="5"   ${flowVolOI == 5   ? 'selected' : ''}>5x — Very unusual only</option>
+      </select>
+      <div class="hint">Vol/OI ratio above this = new money entering</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Min Block Size</div>
+      <select id="flowMinPremium">
+        <option value="25000"  ${flowMinPremium == 25000  ? 'selected' : ''}>$25k+ — Smaller blocks</option>
+        <option value="50000"  ${flowMinPremium == 50000  ? 'selected' : ''}>$50k+ — Medium blocks</option>
+        <option value="100000" ${flowMinPremium == 100000 ? 'selected' : ''}>$100k+ — Whale trades only</option>
+      </select>
+      <div class="hint">Total premium = volume × price × 100</div>
+    </div>
+  </div>
+
+  <div class="settings-grid">
+    <div class="card">
+      <div class="card-label">DTE Min</div>
+      <input type="number" id="flowDteMin" value="${flowDteMin}" min="0" max="365" />
+      <div class="hint">0 = include same-day expiry</div>
+    </div>
+    <div class="card">
+      <div class="card-label">DTE Max</div>
+      <input type="number" id="flowDteMax" value="${flowDteMax}" min="1" max="365" />
+      <div class="hint">60 days captures most near-term flow</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Option Type</div>
+      <select id="flowOptionType">
+        <option value="both"  ${flowOptionType === 'both'  ? 'selected' : ''}>Calls + Puts</option>
+        <option value="calls" ${flowOptionType === 'calls' ? 'selected' : ''}>Calls only</option>
+        <option value="puts"  ${flowOptionType === 'puts'  ? 'selected' : ''}>Puts only</option>
+      </select>
+      <div class="hint">Calls = bullish · Puts = bearish</div>
+    </div>
+  </div>
+
+  <div class="scan-row">
+    <button class="btn-scan" onclick="runFlowScan()" ${flowScanning ? 'disabled' : ''}>
+      ${flowScanning ? '<span class="spin"></span>Scanning...' : '▶ Run Scan'}
+    </button>
+    ${flowError ? `<span class="scan-status error">${flowError}</span>` : ''}
+    ${flowScanned && !flowError
+      ? `<span class="scan-status">✓ ${flowResults.length} signals found</span>`
+      : ''}
+    <div style="margin-left:auto">
+      <div class="api-badge">GET ${API_BASE}/flow/scan</div>
+    </div>
+  </div>
+
+  ${flowScanned && flowResults.length > 0 ? `
+
+  <div class="summary-grid" style="margin-bottom:20px">
+    <div class="stat">
+      <div class="stat-label">Total Signals</div>
+      <div class="stat-value">${flowResults.length}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Total Notional</div>
+      <div class="stat-value green">$${Math.round(totalNotional / 1000)}k</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Bullish / Bearish</div>
+      <div class="stat-value">
+        <span style="color:var(--green)">${totalBulls}▲</span>
+        &nbsp;
+        <span style="color:var(--red)">${totalBears}▼</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="results-header">
+    <div class="results-label">Signals — sorted by total premium</div>
+    <div class="view-btns">
+      <button class="view-btn ${flowView === 'table' ? 'active' : ''}"
+              onclick="setFlowView('table')">Table</button>
+      <button class="view-btn ${flowView === 'cards' ? 'active' : ''}"
+              onclick="setFlowView('cards')">Cards</button>
+    </div>
+  </div>
+
+  ${flowView === 'table' ? `
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Ticker</th><th>Spot</th><th>Type</th><th>Strike</th>
+        <th>Expiry</th><th>DTE</th><th>Volume</th><th>OI</th>
+        <th>Vol/OI</th><th>Premium</th><th>Total $</th>
+        <th>OTM%</th><th>IV%</th><th>Signal</th><th>Sentiment</th>
+      </tr></thead>
+      <tbody>
+        ${(() => {
+          const grouped = groupByTicker(flowResults);
+          return Object.entries(grouped).map(([ticker, rows]) => `
+            <tr>
+              <td colspan="15"
+                style="background:var(--surface2);padding:8px 14px;
+                       font-size:11px;font-weight:600;color:var(--text-muted);
+                       text-transform:uppercase;letter-spacing:.8px;
+                       border-bottom:1px solid var(--border)">
+                ${ticker} · ${rows.length} signal${rows.length > 1 ? 's' : ''}
+                &nbsp;·&nbsp;
+                <span style="color:var(--green)">
+                  ${rows.filter(r => r.sentiment === 'bullish').length}▲ bullish
+                </span>
+                &nbsp;
+                <span style="color:var(--red)">
+                  ${rows.filter(r => r.sentiment === 'bearish').length}▼ bearish
+                </span>
+                &nbsp;·&nbsp;
+                <span style="color:var(--accent2)">
+                  $${Math.round(rows.reduce((a, r) => a + r.total_premium, 0) / 1000)}k notional
+                </span>
+              </td>
+            </tr>
+            ${rows.map(r => `
+            <tr>
+              <td class="td-ticker">${r.ticker}</td>
+              <td>$${fmtPrice(r.spot)}</td>
+              <td style="color:${r.option_type === 'call' ? 'var(--green)' : 'var(--red)'}">
+                ${r.option_type}</td>
+              <td>$${fmt(r.strike, 0)}</td>
+              <td>${r.expiry}</td>
+              <td>${r.dte}d</td>
+              <td style="color:var(--accent2);font-weight:600">
+                ${r.volume.toLocaleString()}</td>
+              <td>${r.open_interest.toLocaleString()}</td>
+              <td class="${r.vol_oi_ratio >= 5 ? 'td-green' :
+                           r.vol_oi_ratio >= 3 ? 'alert-yellow' : ''}">
+                ${r.vol_oi_ratio}x</td>
+              <td>$${fmt(r.premium)}</td>
+              <td class="td-green" style="font-weight:600">
+                $${Math.round(r.total_premium / 1000)}k</td>
+              <td>${r.otm_pct > 0 ? '+' : ''}${fmt(r.otm_pct)}%</td>
+              <td>${r.iv_pct}%</td>
+              <td>${signalBadge(r.signals)}</td>
+              <td>${sentimentBadge(r.sentiment)}</td>
+            </tr>`).join('')}
+          `).join('');
+        })()}
+      </tbody>
+    </table>
+  </div>
+
+  ` : `
+
+  <div>
+    ${(() => {
+      const grouped = groupByTicker(flowResults);
+      return Object.entries(grouped).map(([ticker, rows]) => `
+        <div style="margin-bottom:24px">
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);
+                      text-transform:uppercase;letter-spacing:.8px;
+                      margin-bottom:10px;padding-bottom:6px;
+                      border-bottom:1px solid var(--border);
+                      display:flex;gap:16px;align-items:center">
+            <span>${ticker} · ${rows.length} signal${rows.length > 1 ? 's' : ''}</span>
+            <span style="color:var(--green)">
+              ${rows.filter(r => r.sentiment === 'bullish').length}▲ bullish
+            </span>
+            <span style="color:var(--red)">
+              ${rows.filter(r => r.sentiment === 'bearish').length}▼ bearish
+            </span>
+            <span style="color:var(--accent2)">
+              $${Math.round(rows.reduce((a, r) => a + r.total_premium, 0) / 1000)}k notional
+            </span>
+          </div>
+          <div class="cards-grid">
+            ${rows.map(r => `
+            <div class="result-card">
+              <div class="card-top">
+                <div>
+                  <div class="card-ticker">${r.ticker}</div>
+                  <div class="card-price">$${fmtPrice(r.spot)} spot</div>
+                </div>
+                ${sentimentBadge(r.sentiment)}
+              </div>
+              <div class="stat-pair">
+                <div class="mini-stat">
+                  <div class="mini-label">${r.option_type.toUpperCase()} Strike</div>
+                  <div class="mini-value">$${fmt(r.strike, 0)}</div>
+                </div>
+                <div class="mini-stat">
+                  <div class="mini-label">Total Premium</div>
+                  <div class="mini-value" style="color:var(--green)">
+                    $${Math.round(r.total_premium / 1000)}k</div>
+                </div>
+              </div>
+              <div class="badges-row">
+                <span class="badge badge-blue">DTE ${r.dte}</span>
+                <span class="badge badge-amber">Vol ${r.volume.toLocaleString()}</span>
+                <span class="badge badge-blue">${r.vol_oi_ratio}x Vol/OI</span>
+                ${signalBadge(r.signals)}
+              </div>
+              <div class="card-footer">
+                <span>${r.expiry}</span>
+                <span>IV ${r.iv_pct}% · OTM ${fmt(r.otm_pct)}%</span>
+              </div>
+            </div>`).join('')}
+          </div>
+        </div>
+      `).join('');
+    })()}
+  </div>
+
+  `}
+
+  ` : flowScanned && flowResults.length === 0 && !flowError ? `
+
+  <div class="empty">
+    <div style="font-size:28px;margin-bottom:10px">∅</div>
+    <div>No unusual flow detected. Try lowering the Vol/OI threshold or block size.</div>
+  </div>
+
+  ` : !flowScanned && !flowError ? `
+
+  <div class="empty">
+    <div style="margin-bottom:8px">
+      Select your universe and filters, then click
+      <strong style="color:var(--accent2)">Run Scan</strong>
+    </div>
+    <div style="font-size:12px">
+      Scans options chains for volume spikes and large block trades
+    </div>
+  </div>
+
+  ` : ''}`;
+}
+
+function renderAsk() {
+  const { askLoading, askAnswer, askFollowUps,
+          askError, askHistory } = state;
+
+  const suggestedQuestions = [
+    "Which of my open positions should I write a CC on this week?",
+    "What's my total premium collected YTD?",
+    "Which stock lot has the lowest adjusted cost basis?",
+    "How is my wheel strategy performing overall?",
+    "Which open positions are at risk of assignment?",
+    "What was my best performing ticker this month?",
+  ];
+
+  return `
+  <h1>Ask Options Pilot</h1>
+  <p class="subtitle">Ask anything about your positions, P&L, or strategy.
+     Your live journal data is included automatically.</p>
+
+  <div style="background:var(--surface);border:1px solid var(--border);
+              border-radius:10px;padding:18px;margin-bottom:20px">
+    <div style="display:flex;gap:10px;align-items:flex-start">
+      <textarea id="askInput"
+        placeholder="e.g. Which of my positions should I write a CC on this week?"
+        onkeydown="if(event.key==='Enter' && !event.shiftKey){
+          event.preventDefault();
+          submitQuestion(document.getElementById('askInput').value);
+        }"
+        style="flex:1;background:var(--bg);border:1px solid var(--border);
+               border-radius:7px;color:var(--text);font-size:14px;
+               font-family:var(--sans);padding:10px 12px;outline:none;
+               resize:none;height:60px;line-height:1.5;
+               box-sizing:border-box">${state.askQuestion}</textarea>
+      <button class="btn-scan"
+        onclick="submitQuestion(document.getElementById('askInput').value)"
+        ${askLoading ? 'disabled' : ''}
+        style="padding:10px 20px;white-space:nowrap">
+        ${askLoading
+          ? '<span class="spin"></span>Thinking...'
+          : '▶ Ask'}
+      </button>
+    </div>
+    <div class="hint" style="margin-top:6px">
+      Press Enter to submit · Shift+Enter for new line ·
+      Journal data is included automatically
+    </div>
+  </div>
+
+  ${!askAnswer && !askLoading && !askError ? `
+  <div style="margin-bottom:20px">
+    <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;
+                letter-spacing:.8px;margin-bottom:10px">Suggested Questions</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${suggestedQuestions.map(q => `
+        <button onclick="submitQuestion('${q.replace(/'/g, "\\'")}')"
+          style="padding:7px 14px;border-radius:7px;border:1px solid var(--border);
+                 background:var(--surface);color:var(--text);font-size:12px;
+                 cursor:pointer;text-align:left;transition:all .15s;
+                 font-family:var(--sans)"
+          onmouseover="this.style.borderColor='var(--border2)'"
+          onmouseout="this.style.borderColor='var(--border)'">
+          ${q}
+        </button>`).join('')}
+    </div>
+  </div>
+  ` : ''}
+
+  ${askError ? `
+  <div style="padding:16px;border:1px solid var(--red);border-radius:8px;
+              color:var(--red);margin-bottom:20px;font-size:13px">
+    ${askError}
+  </div>
+  ` : ''}
+
+  ${askAnswer ? `
+  <div style="background:var(--surface);border:1px solid var(--border2);
+              border-radius:10px;padding:20px;margin-bottom:20px">
+    <div style="font-size:11px;color:var(--accent2);text-transform:uppercase;
+                letter-spacing:.8px;margin-bottom:12px">Answer</div>
+    <div style="font-size:14px;color:var(--text-bright);line-height:1.7;
+                white-space:pre-wrap">${askAnswer}</div>
+
+    ${askFollowUps.length ? `
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;
+                  letter-spacing:.8px;margin-bottom:10px">Follow-up Questions</div>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        ${askFollowUps.map(q => `
+          <button onclick="submitQuestion('${q.replace(/'/g, "\\'")}')"
+            style="padding:8px 14px;border-radius:7px;border:1px solid var(--border);
+                   background:var(--surface2);color:var(--text);font-size:13px;
+                   cursor:pointer;text-align:left;transition:all .15s;
+                   font-family:var(--sans)"
+            onmouseover="this.style.borderColor='var(--border2)'"
+            onmouseout="this.style.borderColor='var(--border)'">
+            ${q}
+          </button>`).join('')}
+      </div>
+    </div>
+    ` : ''}
+  </div>
+  ` : ''}
+
+  ${askHistory.length > 1 ? `
+  <div>
+    <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;
+                letter-spacing:.8px;margin-bottom:12px">
+      Earlier This Session (${askHistory.length - 1})
+    </div>
+    ${askHistory.slice(1).map(h => `
+    <div style="background:var(--surface);border:1px solid var(--border);
+                border-radius:8px;padding:14px 16px;margin-bottom:10px;
+                opacity:0.7">
+      <div style="font-size:12px;color:var(--accent2);
+                  margin-bottom:6px">${h.question}</div>
+      <div style="font-size:13px;color:var(--text-muted);
+                  max-height:60px;overflow:hidden;
+                  white-space:pre-wrap">${h.answer.slice(0, 200)}...</div>
+    </div>`).join('')}
+  </div>
+  ` : ''}`;
+}
+
+// ─── Journal Render ───────────────────────────────────────────────────────────
+
+const _charts = {};   // Chart.js instances keyed by canvas id
+
+function _destroyChart(id) {
+  if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; }
+}
+
+function renderJournal() {
+  const { journalAccounts, journalAccountId, journalSubTab,
+          journalSyncing, journalSyncMsg, journalMfaOpen } = state;
+
+  const acctOptions = [
+    `<option value="">All Accounts</option>`,
+    ...journalAccounts.map(a =>
+      `<option value="${a.id}" ${journalAccountId == a.id ? 'selected' : ''}>${a.name}</option>`
+    )
+  ].join('');
+
+  const lastSync = journalAccounts.length
+    ? journalAccounts.map(a => a.last_synced_at).filter(Boolean).sort().pop()
+    : null;
+
+  const acct = journalAccounts.find(a => a.id == journalAccountId);
+
+  return `
+  ${journalMfaOpen ? renderMfaOverlay() : ''}
+  ${state.journalAssignmentPrompt && state.journalPendingAssignments.length ? `
+<div style="background:#1a2a0a;border:1px solid #3a6a1a;border-radius:10px;
+            padding:16px 20px;margin-bottom:16px;
+            display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+  <div style="font-size:13px;color:var(--text-bright);flex:1">
+    <strong style="color:var(--green)">
+      📋 ${state.journalPendingAssignments.length} assignment(s) detected
+    </strong>
+    <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:10px">
+      ${state.journalPendingAssignments.map(a => `
+        <span style="font-size:12px;color:var(--text-muted);
+                     background:var(--surface);padding:3px 10px;
+                     border-radius:5px;border:1px solid var(--border)">
+          ${a.ticker} — ${a.shares} shares @ $${a.cost_basis}
+          (${a.expiry})
+        </span>`).join('')}
+    </div>
+  </div>
+  <button onclick="confirmAssignments()"
+    style="padding:8px 18px;border-radius:7px;border:none;
+           background:var(--green);color:#fff;font-size:13px;
+           font-weight:600;cursor:pointer;flex-shrink:0">
+    ✓ Create Lots
+  </button>
+  <button onclick="dismissAssignments()"
+    style="padding:8px 14px;border-radius:7px;
+           border:1px solid var(--border);background:transparent;
+           color:var(--text-muted);font-size:13px;cursor:pointer;
+           flex-shrink:0">
+    Dismiss
+  </button>
+</div>
+` : ''}
+  <div class="journal-topbar">
+    <h1>Journal</h1>
+
+    <div style="display:flex;align-items:center;gap:6px">
+      <select class="acct-select" id="journalAcctSel">${acctOptions}</select>
+      ${acct ? (
+        state.editingAccountId === acct.id ? `
+          <input id="accountNameInput"
+            value="${state.editingAccountName}"
+            onkeydown="if(event.key==='Enter') saveAccountName(${acct.id});
+                       if(event.key==='Escape') cancelRename();"
+            style="padding:6px 10px;border-radius:6px;border:1px solid var(--border2);
+                   background:var(--bg);color:var(--text);font-size:13px;
+                   outline:none;width:160px" />
+          <button onclick="saveAccountName(${acct.id})"
+            style="padding:6px 10px;border-radius:6px;border:none;
+                   background:var(--accent);color:#fff;font-size:12px;cursor:pointer">
+            Save
+          </button>
+          <button onclick="cancelRename()"
+            style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);
+                   background:transparent;color:var(--text-muted);
+                   font-size:12px;cursor:pointer">
+            Cancel
+          </button>
+        ` : `
+          <button onclick="startRenameAccount(${acct.id}, '${acct.name.replace(/'/g, "\\'")}')"
+            style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);
+                   background:transparent;color:var(--text-muted);
+                   font-size:12px;cursor:pointer"
+            title="Rename this account">
+            ✎ Rename
+          </button>
+        `
+      ) : ''}
+    </div>
+
+    <div style="display:flex;gap:6px;margin-left:auto">
+      <button onclick="downloadCSV('trades')"
+        style="padding:6px 12px;border-radius:6px;border:1px solid var(--border);
+               background:var(--surface2);color:var(--text-muted);
+               font-size:12px;cursor:pointer">
+        ↓ Trades
+      </button>
+      <button onclick="downloadCSV('monthly')"
+        style="padding:6px 12px;border-radius:6px;border:1px solid var(--border);
+               background:var(--surface2);color:var(--text-muted);
+               font-size:12px;cursor:pointer">
+        ↓ Monthly P&L
+      </button>
+      <button onclick="downloadCSV('lots')"
+        style="padding:6px 12px;border-radius:6px;border:1px solid var(--border);
+               background:var(--surface2);color:var(--text-muted);
+               font-size:12px;cursor:pointer">
+        ↓ Cost Basis
+      </button>
+    </div>
+
+    <button class="sync-btn" onclick="state.journalMfaOpen=true;renderMain()"
+      ${journalSyncing ? 'disabled' : ''}>
+      ${journalSyncing ? '<span class="spin"></span>Syncing...' : '⟳ Sync Robinhood'}
+    </button>
+    ${lastSync ? `<span class="sync-ts">Last sync: ${new Date(lastSync).toLocaleString()}</span>` : ''}
+    ${journalSyncMsg ? `<span class="scan-status ${journalSyncMsg.ok ? '' : 'error'}">${journalSyncMsg.text}</span>` : ''}
+  </div>
+
+  <div class="subtab-bar">
+    ${['dashboard','trades','rolls','basis','cycles'].map(s =>
+  `<button class="subtab ${journalSubTab===s?'active':''}" onclick="setJournalSubTab('${s}')">${
+    {dashboard:'Dashboard',trades:'Trade Log',rolls:'Rolls',basis:'Cost Basis',cycles:'Wheel Cycles'}[s]
+  }</button>`
+).join('')}
+  </div>
+
+  ${journalSubTab === 'dashboard' ? renderJournalDashboard()  : ''}
+  ${journalSubTab === 'trades'    ? renderJournalTrades()     : ''}
+  ${journalSubTab === 'basis'     ? renderJournalBasis()      : ''}
+  ${journalSubTab === 'cycles'    ? renderJournalCycles()     : ''}
+  ${journalSubTab === 'rolls' ? renderJournalRolls() : ''}
+  `;
+}
+
+function renderMfaOverlay() {
+  return `
+  <div class="mfa-overlay">
+    <div class="mfa-box">
+      <div class="mfa-title">Robinhood MFA</div>
+      <div class="mfa-sub">Enter the 6-digit code from your authenticator app.<br>Leave blank if your session is already active.</div>
+      <input class="mfa-input" id="mfaCodeInput" type="text" maxlength="6" placeholder="000000"
+        onkeydown="if(event.key==='Enter') submitMfa()" autofocus />
+      <div class="mfa-actions">
+        <button class="mfa-ok" onclick="submitMfa()">Sync Now</button>
+        <button class="mfa-cancel" onclick="state.journalMfaOpen=false;renderMain()">Cancel</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderJournalDashboard() {
+  const { journalSummary: s, journalMonthly, journalCumulative, journalWinRate: wr } = state;
+
+  const noData = `
+    <div class="empty">
+      <div style="font-size:28px;margin-bottom:10px">📊</div>
+      <div>No journal data yet — click <strong style="color:var(--accent2)">Sync Robinhood</strong> to import your trades.</div>
+    </div>`;
+
+  if (!s) return noData;
+
+  const PERIOD_MAP = {
+  'All Time': 'all_time', 'YTD': 'ytd',
+  'This Month': 'month',  'This Week': 'week'
+};
+const pnlCard = (title, bucket) => {
+  const cls      = bucket.total >= 0 ? 'pos' : 'neg';
+  const sign     = bucket.total >= 0 ? '+' : '';
+  const period   = PERIOD_MAP[title];
+  const active   = state.journalDrilldownPeriod === period;
+  const loading  = state.journalDrilldownLoading && active;
+  return `
+  <div class="pnl-card" onclick="loadDrilldown('${period}')"
+    style="cursor:pointer;border-color:${active ? 'var(--accent2)' : 'var(--border)'};transition:border-color .2s">
+    <div class="pnl-card-title" style="display:flex;justify-content:space-between">
+      <span>${title}</span>
+      <span style="font-size:10px;color:${active ? 'var(--accent2)' : 'var(--text-muted)'}">${loading ? '...' : active ? '▲ hide' : '▼ details'}</span>
+    </div>
+    <div class="pnl-card-total ${cls}">${sign}$${fmtPrice(Math.abs(bucket.total))}</div>
+    <div class="pnl-sub"><span>Options</span><span>${bucket.options >= 0 ? '+' : ''}$${fmtPrice(bucket.options)}</span></div>
+    <div class="pnl-sub"><span>Stock</span><span>${bucket.stock >= 0 ? '+' : ''}$${fmtPrice(bucket.stock)}</span></div>
+    <div class="pnl-sub"><span>Dividends</span><span>+$${fmtPrice(bucket.dividend)}</span></div>
+  </div>`;
+};
+
+  return `
+  <div class="pnl-grid">
+    ${pnlCard('All Time',   s.all_time)}
+    ${pnlCard('YTD',        s.ytd)}
+    ${pnlCard('This Month', s.this_month)}
+    ${pnlCard('This Week',  s.this_week)}
+  </div>
+
+  ${renderDrilldown()}
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+    <div class="chart-section">
+      <div class="chart-section-title">Monthly Premium Collected</div>
+      <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+    </div>
+    <div class="chart-section">
+      <div class="chart-section-title">Cumulative P&L</div>
+      <div class="chart-wrap"><canvas id="lineChart"></canvas></div>
+    </div>
+  </div>
+
+  ${wr ? `
+  <div class="win-grid">
+    <div class="win-card">
+      <div class="chart-section-title">Win Rate Summary</div>
+      <div class="win-stat"><span class="win-stat-label">Total contracts</span><span class="win-stat-val">${wr.total}</span></div>
+      <div class="win-stat"><span class="win-stat-label">Expired worthless</span><span class="win-stat-val alert-green">${wr.expired_worthless} (${wr.win_rate_pct}%)</span></div>
+      <div class="win-stat"><span class="win-stat-label">Closed early — profit</span><span class="win-stat-val alert-green">${wr.closed_profit}</span></div>
+      <div class="win-stat"><span class="win-stat-label">Closed early — loss</span><span class="win-stat-val alert-red">${wr.closed_loss}</span></div>
+      <div class="win-stat"><span class="win-stat-label">Still open</span><span class="win-stat-val">${wr.open}</span></div>
+    </div>
+    <div class="win-card">
+      <div class="chart-section-title">Win Rate by Type</div>
+      ${wr.by_type.map(b => `
+        <div class="win-stat">
+          <span class="win-stat-label">${b.type.replace(/_/g,' ')}</span>
+          <span class="win-stat-val">${b.total} trades · <span class="alert-green">${b.win_rate}%</span></span>
+        </div>`).join('')}
+    </div>
+  </div>
+  ` : ''}
+
+  ${renderMonthlyTable()}
+  
+  `;
+}
+function renderDrilldown() {
+  const { journalDrilldownPeriod: period,
+          journalDrilldownData:   data,
+          journalDrilldownLoading: loading } = state;
+
+  if (!period) return '';
+
+  const labels = {
+    week: 'This Week', month: 'This Month',
+    ytd: 'YTD', all_time: 'All Time'
+  };
+
+  if (loading) return `
+    <div style="padding:20px;text-align:center;color:var(--text-muted);
+                border:1px solid var(--border2);border-radius:10px;margin-bottom:20px">
+      <span class="spin"></span> Loading ${labels[period]} details...
+    </div>`;
+
+  if (!data) return '';
+
+  const typeColor = t => (
+    ['short_put','short_call'].includes(t) ? 'td-green' :
+    ['long_put','long_call'].includes(t)   ? 'alert-red' : 'td-blue'
+  );
+
+  const thStyle = `text-align:right;padding:8px 12px;color:var(--text-muted);
+    font-size:11px;font-weight:600;text-transform:uppercase;
+    letter-spacing:.8px;border-bottom:1px solid var(--border)`;
+
+  return `
+  <div style="border:1px solid var(--border2);border-radius:10px;
+              margin-bottom:20px;overflow:hidden">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;
+                padding:12px 16px;background:var(--surface2);
+                border-bottom:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:600;color:var(--accent2);
+                  text-transform:uppercase;letter-spacing:.8px">
+        ${labels[period]} Breakdown
+        ${data.from_date
+          ? `<span style="color:var(--text-muted);font-weight:400;
+               text-transform:none;letter-spacing:0">
+               &nbsp;·&nbsp;from ${data.from_date.slice(0,10)}</span>`
+          : ''}
+      </div>
+      <button onclick="loadDrilldown('${period}')"
+        style="background:transparent;border:none;color:var(--text-muted);
+               font-size:18px;cursor:pointer;line-height:1">×</button>
+    </div>
+
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;
+                  letter-spacing:.8px;margin-bottom:10px">Per-Ticker Summary</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:8px 12px;color:var(--text-muted);
+                         font-size:11px;font-weight:600;text-transform:uppercase;
+                         letter-spacing:.8px;border-bottom:1px solid var(--border)">Ticker</th>
+              <th style="${thStyle}">Options</th>
+              <th style="${thStyle}">Stock P&amp;L</th>
+              <th style="${thStyle}">Dividends</th>
+              <th style="${thStyle}">Net</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.per_ticker.map(r => {
+              const isActive  = state.journalPositionTicker === r.ticker;
+              const isLoading = state.journalPositionLoading && isActive;
+              const posPanel  = isActive ? renderTickerPositionPanel(r.ticker) : '';
+              return `<tr style="cursor:pointer" onclick="loadTickerPosition('${r.ticker}')">
+                <td style="padding:8px 12px;font-family:var(--sans);font-weight:600;
+                           color:${isActive ? 'var(--accent2)' : 'var(--text-bright)'}">
+                  ${r.ticker}
+                  <span style="font-size:10px;color:var(--text-muted);margin-left:6px">
+                    ${isLoading ? '...' : isActive ? '▲' : '▼'}
+                  </span>
+                </td>
+                <td style="padding:8px 12px;text-align:right;font-family:var(--mono);
+                           font-weight:600;
+                           color:${r.options >= 0 ? 'var(--green)' : 'var(--red)'}">
+                  ${r.options >= 0 ? '+' : '-'}$${fmtPrice(Math.abs(r.options))}
+                </td>
+                <td style="padding:8px 12px;text-align:right;font-family:var(--mono);
+                           color:${r.stock >= 0 ? 'var(--green)' : 'var(--red)'}">
+                  ${r.stock !== 0
+                    ? (r.stock >= 0 ? '+' : '-') + '$' + fmtPrice(Math.abs(r.stock))
+                    : '—'}
+                </td>
+                <td style="padding:8px 12px;text-align:right;font-family:var(--mono);
+                           color:var(--accent2)">
+                  ${r.dividend > 0 ? '+$' + fmtPrice(r.dividend) : '—'}
+                </td>
+                <td style="padding:8px 12px;text-align:right;font-family:var(--mono);
+                           font-weight:600;border-left:1px solid var(--border);
+                           color:${r.total >= 0 ? 'var(--green)' : 'var(--red)'}">
+                  ${r.total >= 0 ? '+' : '-'}$${fmtPrice(Math.abs(r.total))}
+                </td>
+              </tr>
+              ${posPanel}`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="padding:14px 16px">
+      <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;
+                  letter-spacing:.8px;margin-bottom:10px">
+        Individual Trades (${data.trades.length})
+      </div>
+      ${data.trades.length === 0
+        ? `<div style="text-align:center;padding:20px;color:var(--text-muted)">
+             No trades in this period</div>`
+        : `<div style="overflow-x:auto">
+           <table style="width:100%;border-collapse:collapse;font-size:12px">
+             <thead>
+               <tr>
+                 ${['Date','Ticker','Type','Strike','Expiry','Qty','Premium','Total','Status']
+                   .map(h => `<th style="text-align:left;padding:7px 10px;
+                     color:var(--text-muted);font-size:10px;font-weight:600;
+                     text-transform:uppercase;letter-spacing:.8px;
+                     border-bottom:1px solid var(--border);
+                     white-space:nowrap">${h}</th>`).join('')}
+               </tr>
+             </thead>
+             <tbody>
+               ${data.trades.map(t => `
+                 <tr style="border-bottom:1px solid #0a1320">
+                   <td style="padding:7px 10px;font-family:var(--mono);
+                              color:var(--text-muted)">
+                     ${t.opened_at ? t.opened_at.slice(0,10) : '—'}
+                   </td>
+                   <td style="padding:7px 10px;font-family:var(--sans);
+                              font-weight:600;color:var(--text-bright)">
+                     ${t.ticker}
+                   </td>
+                   <td style="padding:7px 10px;font-family:var(--mono)"
+                       class="${typeColor(t.trade_type)}">
+                     ${t.trade_type.replace(/_/g, ' ')}
+                   </td>
+                   <td style="padding:7px 10px;font-family:var(--mono)">
+                     ${t.strike ? '$' + fmt(t.strike, 0) : '—'}
+                   </td>
+                   <td style="padding:7px 10px;font-family:var(--mono)">
+                     ${t.expiry || '—'}
+                   </td>
+                   <td style="padding:7px 10px;font-family:var(--mono)">
+                     ${t.quantity}
+                   </td>
+                   <td style="padding:7px 10px;font-family:var(--mono)">
+                     ${t.premium ? '$' + fmt(t.premium) : '—'}
+                   </td>
+                   <td style="padding:7px 10px;font-family:var(--mono);font-weight:600"
+                       class="${(t.total_amount || 0) >= 0 ? 'td-green' : 'alert-red'}">
+                     ${t.total_amount != null
+                       ? (t.total_amount >= 0 ? '+ ' : '- ') + '$' + fmtPrice(Math.abs(t.total_amount))
+                       : '—'}
+                   </td>
+                   <td style="padding:7px 10px">
+                     <span class="badge ${
+                       t.status === 'expired' ? 'badge-green' :
+                       t.status === 'open'    ? 'badge-blue'  : 'badge-amber'
+                     }">${t.status}</span>
+                   </td>
+                 </tr>`).join('')}
+             </tbody>
+           </table>
+           </div>`
+      }
+    </div>
+  </div>`;
+}
+
+function renderTickerPositionPanel(ticker) {
+  const { journalPositionData: d, journalPositionLoading: loading } = state;
+
+  if (loading) {
+    return `<tr><td colspan="5"
+      style="padding:16px;text-align:center;color:var(--text-muted);
+             background:var(--surface2)">
+      <span class="spin"></span> Fetching live prices for ${ticker}...
+    </td></tr>`;
+  }
+
+  if (!d || d.ticker !== ticker) return '';
+
+  const fmtAmt = v => {
+    if (v == null) return '—';
+    return (v >= 0 ? '+ ' : '- ') + '$' + fmtPrice(Math.abs(v));
+  };
+  const cls = v => {
+    if (v == null) return '';
+    return v >= 0 ? 'td-green' : 'alert-red';
+  };
+
+  const tradeRow = (t, isOpen) => `
+    <tr style="background:${isOpen ? '#07111e' : '#06101d'};
+               opacity:${isOpen ? '1' : '0.65'}">
+      <td style="padding:6px 12px;font-family:var(--mono);font-size:11px;
+                 color:var(--text-muted)">
+        ${t.opened_at ? t.opened_at.slice(0,10) : '—'}
+      </td>
+      <td style="padding:6px 12px;font-size:11px;font-family:var(--mono)">
+        ${t.trade_type.replace(/_/g,' ')}
+      </td>
+      <td style="padding:6px 12px;font-family:var(--mono);font-size:11px">
+        $${fmt(t.strike, 0)} / ${t.expiry || '—'}
+      </td>
+      <td style="padding:6px 12px;font-family:var(--mono);font-size:11px">
+        ${t.quantity}x
+      </td>
+      <td style="padding:6px 12px;font-family:var(--mono);font-size:11px"
+          class="${cls(t.total_amount)}">
+        ${fmtAmt(t.total_amount)}
+      </td>
+      <td style="padding:6px 12px;font-family:var(--mono);font-size:11px;
+                 color:var(--text-muted)">
+        ${t.current_mid != null ? '$' + fmt(t.current_mid) : '—'}
+      </td>
+      <td style="padding:6px 12px;font-family:var(--mono);font-size:11px"
+          class="${cls(t.unrealized_pnl)}">
+        ${isOpen ? fmtAmt(t.unrealized_pnl) : '<span style="color:var(--text-muted)">closed</span>'}
+      </td>
+    </tr>`;
+
+  const summaryTiles = [
+    ['Total Credits',    d.total_credits],
+    ['Total Debits',     d.total_debits],
+    ['Net Cash Flow',    d.net_cash_flow],
+    ['Open Mkt Value',   d.open_market_value],
+    ['Unrealized P&L',   d.open_unrealized_pnl],
+  ].map(([label, val]) => `
+    <div style="background:var(--bg);border:1px solid var(--border);
+                border-radius:7px;padding:8px 10px">
+      <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;
+                  letter-spacing:.6px;margin-bottom:3px">${label}</div>
+      <div style="font-family:var(--mono);font-size:14px;font-weight:600"
+           class="${cls(val)}">${fmtAmt(val)}</div>
+    </div>`).join('');
+
+  const headers = ['Date','Type','Strike / Expiry','Qty',
+                   'Cost Basis','Curr Mid','Unrealized P&L'];
+
+  return `
+    <tr>
+      <td colspan="5" style="padding:0;border-top:2px solid var(--border2)">
+        <div style="background:var(--surface2);padding:14px 16px">
+
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);
+                      gap:10px;margin-bottom:14px">
+            ${summaryTiles}
+          </div>
+
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr>
+                ${headers.map(h => `
+                  <th style="text-align:left;padding:6px 12px;
+                      color:var(--text-muted);font-size:10px;font-weight:600;
+                      text-transform:uppercase;letter-spacing:.7px;
+                      border-bottom:1px solid var(--border)">${h}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${d.open_trades.length ? `
+                <tr>
+                  <td colspan="7"
+                    style="padding:5px 12px;font-size:10px;font-weight:600;
+                           color:var(--accent2);text-transform:uppercase;
+                           letter-spacing:.8px;background:var(--surface)">
+                    Open (${d.open_trades.length})
+                  </td>
+                </tr>
+                ${d.open_trades.map(t => tradeRow(t, true)).join('')}
+              ` : ''}
+              ${d.closed_trades.length ? `
+                <tr>
+                  <td colspan="7"
+                    style="padding:5px 12px;font-size:10px;font-weight:600;
+                           color:var(--text-muted);text-transform:uppercase;
+                           letter-spacing:.8px;background:var(--surface)">
+                    Closed / Expired (${d.closed_trades.length})
+                  </td>
+                </tr>
+                ${d.closed_trades.map(t => tradeRow(t, false)).join('')}
+              ` : ''}
+            </tbody>
+          </table>
+        </div>
+      </td>
+    </tr>`;
+}
+
+function renderMonthlyTable() {
+  const rows = [...state.journalMonthly].reverse();
+  if (!rows.length) return '';
+  return `
+  <div class="table-wrap" style="margin-bottom:20px">
+    <table>
+      <thead><tr>
+        <th>Month</th><th>Options Premium</th><th>Stock P&L</th><th>Dividends</th><th>Net Total</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(r => `<tr>
+          <td style="color:var(--text-bright);font-family:var(--sans)">${r.label}</td>
+          <td class="${r.options>=0?'td-green':'alert-red'}">${r.options >= 0 ? '+' : '-'}$${fmtPrice(Math.abs(r.options))}</td>
+          <td class="${r.stock>=0?'td-green':'alert-red'}">${r.stock>=0?'+':''}$${fmtPrice(Math.abs(r.stock))}</td>
+          <td class="td-blue">+$${fmtPrice(r.dividend)}</td>
+          <td class="${r.total>=0?'td-green':'alert-red'}" style="font-weight:600">${r.total >= 0 ? '+' : '-'}$${fmtPrice(Math.abs(r.total))}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function renderJournalCharts() {
+  const monthly    = state.journalMonthly    || [];
+  const cumulative = state.journalCumulative || [];
+
+  // Bar chart — monthly stacked
+  _destroyChart('barChart');
+  const barCtx = document.getElementById('barChart');
+  if (barCtx && monthly.length) {
+    _charts['barChart'] = new Chart(barCtx, {
+      type: 'bar',
+      data: {
+        labels: monthly.map(m => m.label),
+        datasets: [
+          { label: 'Options',   data: monthly.map(m => m.options),  backgroundColor: '#059669' },
+          { label: 'Dividends', data: monthly.map(m => m.dividend), backgroundColor: '#0ea5e9' },
+          { label: 'Stock P&L', data: monthly.map(m => m.stock),    backgroundColor: '#f59e0b' },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#c9d4e8', font: { size: 11 } } } },
+        scales: {
+          x: { stacked: true, ticks: { color: '#4a5a74' }, grid: { color: '#1a2840' } },
+          y: { stacked: true, ticks: { color: '#4a5a74', callback: v => '$'+v }, grid: { color: '#1a2840' } },
+        },
+      },
+    });
+  }
+
+  // Line chart — cumulative
+  _destroyChart('lineChart');
+  const lineCtx = document.getElementById('lineChart');
+  if (lineCtx && cumulative.length) {
+    _charts['lineChart'] = new Chart(lineCtx, {
+      type: 'line',
+      data: {
+        labels: cumulative.map(m => m.label),
+        datasets: [{
+          label: 'Cumulative P&L',
+          data:  cumulative.map(m => m.cumulative),
+          borderColor: '#34d399',
+          backgroundColor: 'rgba(52,211,153,0.08)',
+          fill: true, tension: 0.3, pointRadius: 3,
+          pointBackgroundColor: '#34d399',
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#c9d4e8', font: { size: 11 } } } },
+        scales: {
+          x: { ticks: { color: '#4a5a74' }, grid: { color: '#1a2840' } },
+          y: { ticks: { color: '#4a5a74', callback: v => '$'+v }, grid: { color: '#1a2840' } },
+        },
+      },
+    });
+  }
+}
+
+function renderJournalTrades() {
+  const trades = state.journalTrades;
+  if (!trades.length) return `<div class="empty"><div>No trades yet — sync your Robinhood account first.</div></div>`;
+
+  const typeColor = t => (['short_put','short_call'].includes(t) ? 'td-green' : ['long_put','long_call'].includes(t) ? 'alert-red' : 'td-blue');
+
+  return `
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Date</th><th>Account</th><th>Ticker</th><th>Type</th>
+        <th>Strike</th><th>Expiry</th><th>Qty</th><th>Premium</th><th>Total</th><th>Status</th><th>P&L</th>
+      </tr></thead>
+      <tbody>
+        ${trades.map(t => `<tr>
+          <td>${t.opened_at ? t.opened_at.slice(0,10) : '—'}</td>
+          <td style="color:var(--text-muted);font-family:var(--sans);font-size:12px">${t.account_name}</td>
+          <td class="td-ticker">${t.ticker}</td>
+          <td class="${typeColor(t.trade_type)}">
+  ${t.trade_type.replace(/_/g,' ')}
+  ${t.group_id && t.group_id.startsWith('roll_')
+    ? `<span class="badge badge-amber" style="margin-left:4px;font-size:9px">roll</span>`
+    : ''}
+</td>
+          <td>${t.strike ? '$'+fmt(t.strike,0) : '—'}</td>
+          <td>${t.expiry || '—'}</td>
+          <td>${t.quantity}</td>
+          <td>${t.premium ? '$'+fmt(t.premium) : '—'}</td>
+          <td class="${(t.total_amount||0)>=0?'td-green':'alert-red'}">${t.total_amount!=null?(t.total_amount >= 0 ? '+ ' : '- ') + '$' + fmtPrice(Math.abs(t.total_amount)):'—'}</td>
+          <td><span class="badge ${t.status==='expired'?'badge-green':t.status==='open'?'badge-blue':'badge-amber'}">${t.status}</span></td>
+          <td class="${(t.pnl||0)>=0?'td-green':'alert-red'}">${t.pnl!=null?(t.pnl>=0?'+':'')+' $'+fmtPrice(Math.abs(t.pnl)):'—'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function renderJournalBasis() {
+  const lots = state.journalLots;
+  if (!lots.length) return `<div class="empty"><div>No stock lots found. Sync your account or add lots manually.</div></div>`;
+
+  return `
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Account</th><th>Ticker</th><th>Lot</th><th>Shares</th>
+        <th>Avg Cost</th><th>CC Premiums</th><th>Adj Basis</th>
+        <th>Current</th><th>Buffer</th><th>Alert</th>
+      </tr></thead>
+      <tbody>
+        ${lots.map(l => {
+          const alertCls = l.alert==='red' ? 'alert-red' : l.alert==='yellow' ? 'alert-yellow' : 'alert-green';
+          const alertIcon = l.alert==='red' ? '🔴' : l.alert==='yellow' ? '🟡' : '🟢';
+          return `<tr>
+            <td style="font-family:var(--sans);font-size:12px;color:var(--text-muted)">${l.account_name}</td>
+            <td class="td-ticker">${l.ticker}</td>
+            <td>Lot ${l.lot_number}</td>
+            <td>${l.shares}</td>
+            <td>$${fmtPrice(l.avg_cost)}</td>
+            <td class="td-green">-$${fmtPrice(l.cc_premiums)}</td>
+            <td style="font-weight:600">$${fmtPrice(l.adj_basis)}</td>
+            <td>${l.current_price ? '$'+fmtPrice(l.current_price) : '—'}</td>
+            <td class="${alertCls}">${l.buffer_pct!=null ? (l.buffer_pct>=0?'+':'')+fmt(l.buffer_pct)+'%' : '—'}</td>
+            <td>${alertIcon}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>
+  <div class="hint" style="margin-top:10px">🔴 &lt;2% buffer &nbsp;·&nbsp; 🟡 &lt;5% buffer &nbsp;·&nbsp; 🟢 Safe</div>`;
+}
+
+function renderJournalCycles() {
+  const cycles = state.journalCycles;
+  if (!cycles.length) return `<div class="empty"><div>No wheel cycles detected yet. Sync your account to auto-detect cycles.</div></div>`;
+
+  const statusBadge = s => {
+    const map = { open:'badge-blue', assigned:'badge-amber', covered:'badge-blue', closed:'badge-green', called_away:'badge-green' };
+    return `<span class="badge ${map[s]||'badge-amber'}">${s.replace(/_/g,' ')}</span>`;
+  };
+
+  return `
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Account</th><th>Ticker</th><th>Status</th><th>Legs</th>
+        <th>Premium Collected</th><th>Net P&L</th><th>Opened</th><th>Closed</th>
+      </tr></thead>
+      <tbody>
+        ${cycles.map(c => `<tr>
+          <td style="font-family:var(--sans);font-size:12px;color:var(--text-muted)">${c.account_name}</td>
+          <td class="td-ticker">${c.ticker}</td>
+          <td>${statusBadge(c.status)}</td>
+          <td style="font-size:12px;color:var(--text-muted)">${c.legs.map(l=>l.leg_type.toUpperCase()).join(' → ')}</td>
+          <td class="td-green">+$${fmtPrice(c.total_premium||0)}</td>
+          <td class="${(c.net_pnl||0)>=0?'td-green':'alert-red'}">${c.net_pnl!=null?(c.net_pnl>=0?'+':'')+' $'+fmtPrice(Math.abs(c.net_pnl)):'—'}</td>
+          <td>${c.opened_at ? c.opened_at.slice(0,10) : '—'}</td>
+          <td>${c.closed_at ? c.closed_at.slice(0,10) : '—'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function renderJournalRolls() {
+  const rolls = state.journalRolls;
+  if (!rolls.length) return `
+    <div class="empty">
+      <div>No rolls detected yet. Rolls are identified when you buy to close
+           and sell to open the same option type within 24 hours.</div>
+    </div>`;
+
+  const totalNet = rolls.reduce((a, r) => a + r.net_premium, 0);
+  const credits  = rolls.filter(r => r.is_credit).length;
+  const debits   = rolls.filter(r => !r.is_credit).length;
+
+  return `
+  <div class="summary-grid" style="margin-bottom:20px">
+    <div class="stat">
+      <div class="stat-label">Total Rolls</div>
+      <div class="stat-value">${rolls.length}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Net Premium</div>
+      <div class="stat-value ${totalNet>=0?'green':''}">
+        ${totalNet>=0?'+':''}$${Math.abs(totalNet).toLocaleString()}
+      </div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Credit / Debit Rolls</div>
+      <div class="stat-value">
+        <span style="color:var(--green)">${credits}✓</span>
+        &nbsp;
+        <span style="color:var(--red)">${debits}✗</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Date</th><th>Account</th><th>Ticker</th><th>Type</th>
+        <th>Closed Strike</th><th>Closed Expiry</th><th>Cost to Close</th>
+        <th>New Strike</th><th>New Expiry</th><th>New Credit</th>
+        <th>Net Premium</th>
+      </tr></thead>
+      <tbody>
+        ${rolls.map(r => `<tr>
+          <td style="color:var(--text-muted)">${r.roll_date?r.roll_date.slice(0,10):'—'}</td>
+          <td style="font-family:var(--sans);font-size:12px;
+                     color:var(--text-muted)">${r.account_name}</td>
+          <td class="td-ticker">${r.ticker}</td>
+          <td style="color:${r.option_type==='call'?'var(--green)':'var(--red)'}">
+            ${r.option_type}</td>
+          <td>$${r.closed_strike||'—'}</td>
+          <td style="color:var(--text-muted)">${r.closed_expiry||'—'}</td>
+          <td class="alert-red">
+            ${r.closed_cost!=null?'- $'+Math.abs(r.closed_cost).toLocaleString():'—'}
+          </td>
+          <td>$${r.new_strike||'—'}</td>
+          <td style="color:var(--text-muted)">${r.new_expiry||'—'}</td>
+          <td class="td-green">
+            ${r.new_credit!=null?'+ $'+r.new_credit.toLocaleString():'—'}
+          </td>
+          <td class="${r.is_credit?'td-green':'alert-red'}"
+              style="font-weight:600">
+            ${r.is_credit?'+':'- '}$${Math.abs(r.net_premium).toLocaleString()}
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function renderCCCards(results) {
+  const grouped = results.reduce((acc, r) => {
+    if (!acc[r.ticker]) acc[r.ticker] = [];
+    acc[r.ticker].push(r);
+    return acc;
+  }, {});
+
+  return Object.entries(grouped).map(([ticker, rows]) => `
+    <div style="margin-bottom:24px">
+      <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+        ${ticker} · ${rows.length} candidate${rows.length > 1 ? 's' : ''}
+      </div>
+      <div class="cards-grid">
+        ${rows.map(r => `
+        <div class="result-card">
+          <div class="card-top">
+            <div>
+              <div class="card-ticker">${r.ticker}</div>
+              <div class="card-price">$${fmtPrice(r.price)} spot · ${r.expiration}</div>
+            </div>
+            <span class="badge badge-green">${fmt(r.annual_yield_pct)}% yield</span>
+          </div>
+          <div class="stat-pair">
+            <div class="mini-stat">
+              <div class="mini-label">Call Strike</div>
+              <div class="mini-value">$${fmt(r.strike, 0)}</div>
+            </div>
+            <div class="mini-stat">
+              <div class="mini-label">Premium</div>
+              <div class="mini-value">$${fmt(r.premium)} <span style="font-size:10px;color:var(--text-muted)">/sh</span></div>
+            </div>
+          </div>
+          <div class="badges-row">
+            <span class="badge badge-blue">DTE ${r.DTE}</span>
+            <span class="badge badge-blue">OTM ${fmt(r.cushion_pct)}%</span>
+            <span class="badge badge-amber">ROI ${fmt(r.roi_pct)}%</span>
+          </div>
+          <div class="card-footer">
+            <span>Share cost: ${fmtUSD(r.collateral)}</span>
+            <span>Credit: $${fmt(r.credit, 0)}</span>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderCCTable(results) {
+  const grouped = results.reduce((acc, r) => {
+    if (!acc[r.ticker]) acc[r.ticker] = [];
+    acc[r.ticker].push(r);
+    return acc;
+  }, {});
+
+  const rows = Object.entries(grouped).map(([ticker, tickerRows]) => `
+    <tr>
+      <td colspan="11" style="background:var(--surface2);padding:8px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border)">
+        ${ticker} · ${tickerRows.length} candidate${tickerRows.length > 1 ? 's' : ''}
+      </td>
+    </tr>
+    ${tickerRows.map(r => `<tr>
+      <td class="td-ticker">${r.ticker}</td>
+      <td>$${fmtPrice(r.price)}</td>
+      <td>$${fmt(r.strike, 0)}</td>
+      <td>${r.expiration}</td>
+      <td class="td-green">$${fmt(r.premium)}</td>
+      <td>${r.DTE}d</td>
+      <td>${fmt(r.cushion_pct)}%</td>
+      <td class="td-blue">${fmt(r.roi_pct)}%</td>
+      <td class="td-green" style="font-weight:600">${fmt(r.annual_yield_pct)}%</td>
+      <td>${fmtUSD(r.collateral)}</td>
+      <td>$${fmt(r.credit, 0)}</td>
+    </tr>`).join('')}
+  `).join('');
+
+  return `<div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Ticker</th><th>Spot</th><th>Call Strike</th><th>Expiry</th>
+        <th>Premium</th><th>DTE</th><th>OTM%</th><th>ROI%</th><th>Ann. Yield%</th><th>Share Cost</th><th>Credit</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+function renderCards(results) {
+  const grouped = results.reduce((acc, r) => {
+    if (!acc[r.ticker]) acc[r.ticker] = [];
+    acc[r.ticker].push(r);
+    return acc;
+  }, {});
+
+  return Object.entries(grouped).map(([ticker, rows]) => `
+    <div style="margin-bottom:24px">
+      <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+        ${ticker} · ${rows.length} candidate${rows.length > 1 ? 's' : ''}
+      </div>
+      <div class="cards-grid">
+        ${rows.map(r => `
+        <div class="result-card">
+          <div class="card-top">
+            <div>
+              <div class="card-ticker">${r.ticker}</div>
+              <div class="card-price">$${fmtPrice(r.price)} spot · ${r.expiration}</div>
+            </div>
+            <span class="badge badge-green">${fmt(r.annual_yield_pct)}% yield</span>
+          </div>
+          <div class="stat-pair">
+            <div class="mini-stat">
+              <div class="mini-label">Strike</div>
+              <div class="mini-value">$${fmt(r.strike, 0)}</div>
+            </div>
+            <div class="mini-stat">
+              <div class="mini-label">Premium</div>
+              <div class="mini-value">$${fmt(r.premium)} <span style="font-size:10px;color:var(--text-muted)">/sh</span></div>
+            </div>
+          </div>
+          <div class="badges-row">
+            <span class="badge badge-blue">DTE ${r.DTE}</span>
+            <span class="badge badge-blue">OTM ${fmt(r.cushion_pct)}%</span>
+            <span class="badge badge-amber">ROI ${fmt(r.roi_pct)}%</span>
+          </div>
+          <div class="card-footer">
+            <span>Collateral: ${fmtUSD(r.collateral)}</span>
+            <span>Credit: $${fmt(r.credit, 0)}</span>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderTable(results) {
+  const grouped = results.reduce((acc, r) => {
+    if (!acc[r.ticker]) acc[r.ticker] = [];
+    acc[r.ticker].push(r);
+    return acc;
+  }, {});
+
+  const rows = Object.entries(grouped).map(([ticker, tickerRows]) => `
+    <tr>
+      <td colspan="11" style="background:var(--surface2);padding:8px 14px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border)">
+        ${ticker} · ${tickerRows.length} candidate${tickerRows.length > 1 ? 's' : ''}
+      </td>
+    </tr>
+    ${tickerRows.map(r => `<tr>
+      <td class="td-ticker">${r.ticker}</td>
+      <td>$${fmtPrice(r.price)}</td>
+      <td>$${fmt(r.strike, 0)}</td>
+      <td>${r.expiration}</td>
+      <td class="td-green">$${fmt(r.premium)}</td>
+      <td>${r.DTE}d</td>
+      <td>${fmt(r.cushion_pct)}%</td>
+      <td class="td-blue">${fmt(r.roi_pct)}%</td>
+      <td class="td-green" style="font-weight:600">${fmt(r.annual_yield_pct)}%</td>
+      <td>${fmtUSD(r.collateral)}</td>
+      <td>$${fmt(r.credit, 0)}</td>
+    </tr>`).join('')}
+  `).join('');
+
+  return `<div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Ticker</th><th>Spot</th><th>Strike</th><th>Expiry</th>
+        <th>Premium</th><th>DTE</th><th>OTM%</th><th>ROI%</th><th>Ann. Yield%</th><th>Collateral</th><th>Credit</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+function renderComingSoon() {
+  const labels = { cc: 'Covered Calls', flow: 'Unusual Flow', journal: 'Journal (Robinhood)', ask: 'Ask Options Pilot' };
+  const descs = {
+    cc: 'Scan for covered call opportunities on stocks you hold.',
+    flow: 'Track unusual options activity and institutional bets.',
+    journal: 'Log trades, track P&L, and sync with your Robinhood accounts.',
+    ask: 'Ask an AI assistant about your positions and strategies.',
+  };
+  return `<div class="coming-soon">
+    <div style="font-size:32px">🚧</div>
+    <h2>${labels[state.tab]}</h2>
+    <p>${descs[state.tab]}</p>
+  </div>`;
+}
+
+// ─── Event handlers ────────────────────────────────────────────────────────────
+function setTab(t) {
+  state.tab = t;
+  renderMain();
+  renderHeader();
+  if (t === 'csp') fetchEarnings(state.tickers,   'csp');
+  if (t === 'cc')  fetchEarnings(state.ccTickers,  'cc');
+  if (t === 'journal') fetchAccountValue();
+}
+
+function setView(v) { state.view = v; renderMain(); }
+
+function addTicker() {
+  const sel = document.getElementById('tickerSelect');
+  if (sel && sel.value && !state.tickers.includes(sel.value)) {
+    state.tickers = [...state.tickers, sel.value];
+    renderMain();
+    fetchEarnings(state.tickers, 'csp');
+  }
+}
+function addCCTicker() {
+  const sel = document.getElementById('ccTickerSelect');
+  if (sel && sel.value && !state.ccTickers.includes(sel.value)) {
+    state.ccTickers = [...state.ccTickers, sel.value];
+    renderMain();
+    fetchEarnings(state.ccTickers, 'cc');
+  }
+}
+
+function setCCView(v) { state.ccView = v; renderMain(); }
+
+function setFlowView(v) { state.flowView = v; renderMain(); }
+
+function renderEarningsBar(earnings, dtMin, dtMax) {
+  if (!earnings.length) return '';
+
+  const icon  = a => a==='red' ? '🔴' : a==='yellow' ? '🟡' : '🟢';
+  const color = a => a==='red' ? 'var(--red)' : a==='yellow' ? 'var(--amber)' : 'var(--green)';
+
+  const warnings = earnings.filter(e => e.alert !== 'green');
+
+  return `
+  <div style="background:var(--surface);border:1px solid var(--border);
+              border-radius:8px;padding:10px 14px;margin-bottom:14px;
+              display:flex;flex-wrap:wrap;align-items:center;gap:12px">
+    <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;
+                letter-spacing:.8px;flex-shrink:0">Earnings</div>
+    ${earnings.map(e => `
+      <div style="display:flex;align-items:center;gap:5px;font-size:12px">
+        <span>${icon(e.alert)}</span>
+        <span style="font-weight:600;color:var(--text-bright)">${e.ticker}</span>
+        <span style="color:${color(e.alert)}">${e.earnings_date}</span>
+        <span style="color:var(--text-muted)">(${e.days_out}d)</span>
+        ${e.alert === 'red' ? `
+          <span style="font-size:10px;color:var(--red);
+                       background:#2a0a0a;border:1px solid #7f1d1d;
+                       padding:1px 6px;border-radius:4px">
+            within DTE window
+          </span>` : ''}
+      </div>`).join('')}
+    ${warnings.length ? `
+      <div style="margin-left:auto;font-size:11px;color:var(--amber)">
+        ⚠ ${warnings.length} ticker${warnings.length>1?'s':''} with earnings within 30 days
+      </div>` : ''}
+  </div>`;
+}
+
+function renderPositionSizer(tab) {
+  const collateral = state.collateral;
+  const strike     = state.sizingStrike  || 0;
+  const premium    = state.sizingPremium || 0;
+  const contracts  = strike > 0
+    ? Math.floor(collateral / (strike * 100)) : 0;
+  const maxContracts   = Math.min(contracts, 20);
+  const selected       = state.sizingContracts || 1;
+  const capitalUsed    = selected * strike * 100;
+  const capitalLeft    = collateral - capitalUsed;
+  const totalPremium   = selected * premium * 100;
+  const breakeven      = strike - premium;
+  const roiPct         = strike > 0
+    ? ((premium / strike) * 100).toFixed(2) : '0.00';
+
+  return `
+  <div style="background:var(--surface);border:1px solid var(--border);
+              border-radius:10px;padding:16px;margin-bottom:14px">
+    <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;
+                letter-spacing:.8px;margin-bottom:12px">
+      Position Sizing Calculator
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;
+                margin-bottom:14px">
+      <div>
+        <div class="card-label">Strike Price ($)</div>
+        <input type="number" id="sizingStrike"
+          value="${strike || ''}" placeholder="e.g. 410"
+          min="0" step="0.5" />
+      </div>
+      <div>
+        <div class="card-label">Premium / Share ($)</div>
+        <input type="number" id="sizingPremium"
+          value="${premium || ''}" placeholder="e.g. 2.20"
+          min="0" step="0.01" />
+      </div>
+      <div>
+        <div class="card-label">Contracts to Sell</div>
+        <input type="number" id="sizingContracts"
+          value="${selected}" min="1"
+          max="${maxContracts || 1}" />
+        <div class="hint">Max with budget: ${maxContracts}</div>
+      </div>
+    </div>
+
+    ${strike > 0 && premium > 0 ? `
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+      ${[
+        ['Capital Used',    `$${capitalUsed.toLocaleString()}`,  ''],
+        ['Capital Left',    `$${capitalLeft.toLocaleString()}`,
+          capitalLeft < 0 ? 'alert-red' : 'td-green'],
+        ['Total Premium',   `+$${totalPremium.toLocaleString()}`, 'td-green'],
+        ['Break-even',      `$${breakeven.toFixed(2)}`,           ''],
+        ['ROI %',           `${roiPct}%`,                         'td-green'],
+      ].map(([label, val, cls]) => `
+        <div style="background:var(--bg);border:1px solid var(--border);
+                    border-radius:7px;padding:8px 10px">
+          <div style="font-size:10px;color:var(--text-muted);
+                      text-transform:uppercase;letter-spacing:.6px;
+                      margin-bottom:3px">${label}</div>
+          <div style="font-family:var(--mono);font-size:14px;font-weight:600"
+               class="${cls}">${val}</div>
+        </div>`).join('')}
+    </div>
+    ${capitalLeft < 0 ? `
+    <div style="margin-top:8px;font-size:12px;color:var(--red)">
+      ⚠ ${selected} contracts requires $${capitalUsed.toLocaleString()}
+      which exceeds your $${collateral.toLocaleString()} budget.
+      Max contracts: ${maxContracts}.
+    </div>` : ''}
+    ` : `
+    <div style="font-size:12px;color:var(--text-muted)">
+      Enter a strike and premium to see position sizing.
+    </div>`}
+  </div>`;
+}
+
+function setJournalSubTab(s) {
+  state.journalSubTab = s;
+  loadJournalSubTab();
+}
+
+function submitMfa() {
+  const code = document.getElementById('mfaCodeInput')?.value?.trim() || '';
+  syncRobinhood(code);
+}
+
+function startRenameAccount(id, currentName) {
+  state.editingAccountId   = id;
+  state.editingAccountName = currentName;
+  renderMain();
+  // Focus the input after render
+  setTimeout(() => {
+    const el = document.getElementById('accountNameInput');
+    if (el) { el.focus(); el.select(); }
+  }, 50);
+}
+
+async function saveAccountName(id) {
+  const input = document.getElementById('accountNameInput');
+  const name  = input ? input.value.trim() : state.editingAccountName;
+  console.log('Saving:', id, name);   // ← add this line
+  console.log('URL:', `${API_BASE}/journal/accounts/${id}`);
+  if (!name) return;
+
+  try {
+    const resp = await fetch(`${API_BASE}/journal/accounts/${id}`, {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ name }),
+    });
+    if (!resp.ok) throw new Error('Failed to rename');
+    // Update local state
+    const acct = state.journalAccounts.find(a => a.id === id);
+    if (acct) acct.name = name;
+  } catch (e) {
+    console.error(e);
+  } finally {
+    state.editingAccountId   = null;
+    state.editingAccountName = '';
+    renderMain();
+    if (state.journalSubTab === 'dashboard') renderJournalCharts();
+  }
+}
+
+function cancelRename() {
+  state.editingAccountId   = null;
+  state.editingAccountName = '';
+  renderMain();
+  if (state.journalSubTab === 'dashboard') renderJournalCharts();
+}
+
+function downloadCSV(endpoint) {
+  const aid = state.journalAccountId
+    ? `?account_id=${state.journalAccountId}` : '';
+  window.open(`${API_BASE}/journal/export/${endpoint}${aid}`, '_blank');
+}
+
+function attachListeners() {
+  document.getElementById('collateral')?.addEventListener('change', e => { state.collateral = parseFloat(e.target.value) || 5000; });
+  document.getElementById('safety')?.addEventListener('change', e => { state.safety = e.target.value; renderMain(); });
+  document.getElementById('maxResults')?.addEventListener('change', e => { state.maxResults = parseInt(e.target.value) || 5; });
+  document.getElementById('ccSafety')?.addEventListener('change', e => { state.ccSafety = e.target.value; renderMain(); });
+  document.getElementById('ccMaxResults')?.addEventListener('change', e => { state.ccMaxResults = parseInt(e.target.value) || 5; });
+  document.getElementById('ccDteMin')?.addEventListener('change', e => { state.ccDteMin = parseInt(e.target.value) || 30; });
+  document.getElementById('ccDteMax')?.addEventListener('change', e => { state.ccDteMax = parseInt(e.target.value) || 45; });
+
+
+  document.getElementById('dteMin')?.addEventListener('change', e => {
+    const val = parseInt(e.target.value);
+    if (!isNaN(val) && val >= 1) state.dteMin = val;
+});
+document.getElementById('dteMax')?.addEventListener('change', e => {
+    const val = parseInt(e.target.value);
+    if (!isNaN(val) && val >= 1) state.dteMax = val;
+});
+
+document.getElementById('journalAcctSel')?.addEventListener('change', e => {
+  state.journalAccountId = e.target.value ? parseInt(e.target.value) : null;
+  loadJournalSubTab();
+  fetchAccountValue();
+});
+document.getElementById('flowUniverse')?.addEventListener('change',
+  e => { state.flowUniverse = e.target.value; });
+document.getElementById('flowVolOI')?.addEventListener('change',
+  e => { state.flowVolOI = parseFloat(e.target.value); });
+document.getElementById('flowMinPremium')?.addEventListener('change',
+  e => { state.flowMinPremium = parseFloat(e.target.value); });
+document.getElementById('flowDteMin')?.addEventListener('change',
+  e => { state.flowDteMin = parseInt(e.target.value) || 0; });
+document.getElementById('flowDteMax')?.addEventListener('change',
+  e => { state.flowDteMax = parseInt(e.target.value) || 60; });
+document.getElementById('flowOptionType')?.addEventListener('change',
+  e => { state.flowOptionType = e.target.value; });
+document.getElementById('flowExtraTickers')?.addEventListener('change',
+  e => { state.flowExtraTickers = e.target.value.trim().toUpperCase(); });
+document.getElementById('sizingStrike')?.addEventListener('input', e => {
+  state.sizingStrike = parseFloat(e.target.value) || 0;
+  renderMain();
+});
+document.getElementById('sizingPremium')?.addEventListener('input', e => {
+  state.sizingPremium = parseFloat(e.target.value) || 0;
+  renderMain();
+});
+document.getElementById('sizingContracts')?.addEventListener('input', e => {
+  state.sizingContracts = parseInt(e.target.value) || 1;
+  renderMain();
+});  
+
+document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const t = chip.dataset.ticker;
+      if (chip.dataset.tab === 'cc') {
+        state.ccTickers = state.ccTickers.filter(x => x !== t);
+        fetchEarnings(state.ccTickers, 'cc');
+      } else {
+        state.tickers = state.tickers.filter(x => x !== t);
+        fetchEarnings(state.tickers, 'csp');
+      }
+      renderMain();
+    });
+});
+  
+}
+
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+renderHeader();
+renderMain();
+checkHealth();
+fetchJournalAccounts();
+setInterval(checkHealth, 10000);
+</script>
+</body>
+</html>
