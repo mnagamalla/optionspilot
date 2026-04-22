@@ -2,7 +2,7 @@
 
 A full-stack personal options trading platform for wheel strategy traders. Scan for CSPs and covered calls, track your Robinhood journal, detect unusual flow, and ask AI questions about your positions — all in one Bloomberg-inspired dark-mode UI.
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)
 
@@ -193,7 +193,7 @@ Open **http://localhost:8000** — API docs at **http://localhost:8000/docs**
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
+Apache License — see [LICENSE](LICENSE) for details.
 
 ---
 
