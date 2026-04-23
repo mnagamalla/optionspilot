@@ -238,7 +238,7 @@ const ALL_TICKERS = ['AMD','PLTR','NFLX','AVGO','NVDA','SOFI','EBAY','META','MSF
 // ─── State ───────────────────────────────────────────────────────────────────
 const state = {
   tab: 'csp',
-  view: 'cards',
+  view: 'table',
   tickers: ['AMD','PLTR','NFLX','AVGO','NVDA'],
   collateral: 50000,
   dteMin: 30,
@@ -261,7 +261,7 @@ const state = {
   ccResults: [],
   ccError: null,
   ccElapsed: null,
-  ccView: 'cards',
+  ccView: 'table',
   // ── Journal ──
   journalAccountId:  null,      // null = All Accounts
   journalAccounts:   [],
@@ -389,7 +389,6 @@ async function runCCScan() {
     dte_min: state.ccDteMin,
     dte_max: state.ccDteMax,
     max_results: state.ccMaxResults,
-    collateral_budget: state.collateral,
     safety: state.ccSafety,
   };
 
@@ -787,7 +786,6 @@ function renderCSP() {
   const { tickers, collateral, dteMin, dteMax, maxResults, safety, scanning, scanned, results, error, elapsed } = state;
   const avgYield = results.length ? results.reduce((a, r) => a + r.annual_yield_pct, 0) / results.length : 0;
   const avgRoi = results.length ? results.reduce((a, r) => a + r.roi_pct, 0) / results.length : 0;
-  const availTickers = ALL_TICKERS.filter(t => !tickers.includes(t));
 
   return `
     <h1>Cash-Secured Put Scanner</h1>
@@ -797,7 +795,7 @@ function renderCSP() {
       <div class="card">
         <div class="card-label">Collateral Budget ($)</div>
         <input type="number" id="collateral" value="${collateral}" min="500" step="500" />
-        <div class="hint">Max collateral per scan ($10k free tier)</div>
+        <div class="hint">Max collateral per position — filters strikes above this</div>
       </div>
       <div class="card">
         <div class="card-label">Universe (Tickers)</div>
@@ -805,10 +803,13 @@ function renderCSP() {
           ${tickers.map(t => `<span class="chip" data-ticker="${t}">${t} <span class="chip-x">✕</span></span>`).join('')}
         </div>
         <div class="add-row">
-          <select id="tickerSelect">
-            <option value="">+ Add ticker</option>
-            ${availTickers.map(t => `<option value="${t}">${t}</option>`).join('')}
-          </select>
+          <input type="text" id="tickerInput"
+            placeholder="e.g. TSLA, HOOD"
+            maxlength="8"
+            style="text-transform:uppercase;background:var(--bg);border:1px solid var(--border);
+                   border-radius:6px;color:var(--text);font-size:13px;padding:6px 10px;
+                   outline:none;width:110px;font-family:var(--mono)"
+            onkeydown="if(event.key==='Enter') addTicker()" />
           <button class="btn-add" onclick="addTicker()">Add</button>
         </div>
       </div>
@@ -819,8 +820,8 @@ function renderCSP() {
           <option value="balanced" ${safety === 'balanced' ? 'selected' : ''}>Balanced — 8%+ OTM cushion</option>
           <option value="aggressive" ${safety === 'aggressive' ? 'selected' : ''}>Aggressive — 5%+ OTM cushion</option>
         </select>
-        <div class="hint" style="color:${safety === 'aggressive' ? 'var(--amber)' : 'var(--text-muted)'}">
-          ${safety === 'aggressive' ? '⚠ Higher assignment risk — strike closer to spot' : 'Recommended: Balanced or Conservative'}
+        <div class="hint" style="color:${safety === 'aggressive' ? 'var(--amber)' : safety === 'conservative' ? 'var(--green)' : 'var(--text-muted)'}">
+          ${{conservative:'✓ 10%+ OTM cushion required', balanced:'8%+ OTM cushion required', aggressive:'⚠ 5%+ OTM — higher assignment risk'}[safety]}
         </div>
       </div>
     </div>
@@ -828,7 +829,7 @@ function renderCSP() {
     <div class="settings-grid">
       <div class="card">
         <div class="card-label">DTE Min</div>
-        <input type="number" id="dteMin" value="${dteMin}" min="1" max="180" />
+        <input type="number" id="dteMin" value="${dteMin}" min="0" max="180" />
         <div class="hint">Shorter = faster decay, more active management</div>
       </div>
       <div class="card">
@@ -842,7 +843,6 @@ function renderCSP() {
         <div class="hint">Sorted by Annual Yield % descending</div>
       </div>
     </div>
-    ${renderPositionSizer('csp')}
     ${renderEarningsBar(state.cspEarnings, state.dteMin, state.dteMax)}
     <div class="scan-row">
       <button class="btn-scan" onclick="runScan()" ${scanning ? 'disabled' : ''}>
@@ -863,15 +863,28 @@ function renderCSP() {
       <div class="stat"><div class="stat-label">Candidates</div><div class="stat-value">${results.length}</div></div>
       <div class="stat"><div class="stat-label">Avg Annual Yield</div><div class="stat-value green">${fmt(avgYield)}%</div></div>
       <div class="stat"><div class="stat-label">Avg ROI / Contract</div><div class="stat-value blue">${fmt(avgRoi)}%</div></div>
+      <div class="stat"><div class="stat-label">Budget</div><div class="stat-value">$${state.collateral.toLocaleString()}</div></div>
+    </div>
+    <div style="margin-bottom:12px;padding:10px 14px;background:var(--surface);
+                border:1px solid var(--border);border-radius:8px;font-size:12px">
+      <span style="color:var(--text-muted)">Max contracts at your budget → </span>
+      ${[...new Set(results.map(r => r.ticker))].map(ticker => {
+        const best   = results.find(r => r.ticker === ticker);
+        const strike = best ? best.strike : 0;
+        const max    = strike > 0 ? Math.floor(state.collateral / (strike * 100)) : 0;
+        return max > 0
+          ? `<span style="margin-right:14px">
+               <strong style="color:var(--text-bright)">${ticker}</strong>
+               <span style="color:var(--accent2)"> ${max} contract${max>1?'s':''}</span>
+               <span style="color:var(--text-muted)"> @ $${strike}</span>
+             </span>`
+          : '';
+      }).join('')}
     </div>
     <div class="results-header">
       <div class="results-label">Candidates</div>
-      <div class="view-btns">
-        <button class="view-btn ${state.view === 'cards' ? 'active' : ''}" onclick="setView('cards')">Cards</button>
-        <button class="view-btn ${state.view === 'table' ? 'active' : ''}" onclick="setView('table')">Table</button>
-      </div>
     </div>
-    ${state.view === 'cards' ? renderCards(results) : renderTable(results)}
+    ${renderTable(results)}
     ` : scanned && results.length === 0 && !error ? `
     <div class="empty">
       <div style="font-size:28px;margin-bottom:10px">∅</div>
@@ -894,7 +907,6 @@ function renderCC() {
     ? ccResults.reduce((a, r) => a + r.annual_yield_pct, 0) / ccResults.length : 0;
   const avgRoi = ccResults.length
     ? ccResults.reduce((a, r) => a + r.roi_pct, 0) / ccResults.length : 0;
-  const availTickers = ALL_TICKERS.filter(t => !ccTickers.includes(t));
 
   return `
     <h1>Covered Call Scanner</h1>
@@ -907,10 +919,13 @@ function renderCC() {
           ${ccTickers.map(t => `<span class="chip" data-ticker="${t}" data-tab="cc">${t} <span class="chip-x">✕</span></span>`).join('')}
         </div>
         <div class="add-row">
-          <select id="ccTickerSelect">
-            <option value="">+ Add ticker</option>
-            ${availTickers.map(t => `<option value="${t}">${t}</option>`).join('')}
-          </select>
+          <input type="text" id="ccTickerInput"
+            placeholder="e.g. AVGO, SPY"
+            maxlength="8"
+            style="text-transform:uppercase;background:var(--bg);border:1px solid var(--border);
+                   border-radius:6px;color:var(--text);font-size:13px;padding:6px 10px;
+                   outline:none;width:110px;font-family:var(--mono)"
+            onkeydown="if(event.key==='Enter') addCCTicker()" />
           <button class="btn-add" onclick="addCCTicker()">Add</button>
         </div>
       </div>
@@ -921,8 +936,8 @@ function renderCC() {
           <option value="balanced" ${ccSafety === 'balanced' ? 'selected' : ''}>Balanced — 8%+ OTM</option>
           <option value="aggressive" ${ccSafety === 'aggressive' ? 'selected' : ''}>Aggressive — 5%+ OTM</option>
         </select>
-        <div class="hint" style="color:${ccSafety === 'aggressive' ? 'var(--amber)' : 'var(--text-muted)'}">
-          ${ccSafety === 'aggressive' ? '⚠ Higher assignment risk — strike closer to spot' : 'Recommended: Balanced or Conservative'}
+        <div class="hint" style="color:${ccSafety === 'aggressive' ? 'var(--amber)' : ccSafety === 'conservative' ? 'var(--green)' : 'var(--text-muted)'}">
+          ${{conservative:'✓ 10%+ OTM cushion required', balanced:'8%+ OTM cushion required', aggressive:'⚠ 5%+ OTM — higher assignment risk'}[ccSafety]}
         </div>
       </div>
       <div class="card">
@@ -935,7 +950,7 @@ function renderCC() {
     <div class="settings-grid">
       <div class="card">
         <div class="card-label">DTE Min</div>
-        <input type="number" id="ccDteMin" value="${ccDteMin}" min="1" max="180" />
+        <input type="number" id="ccDteMin" value="${ccDteMin}" min="0" max="180" />
         <div class="hint">Shorter = faster decay, more active management</div>
       </div>
       <div class="card">
@@ -952,7 +967,6 @@ function renderCC() {
         </div>
       </div>
     </div>
-    ${renderPositionSizer('cc')}
     ${renderEarningsBar(state.ccEarnings, state.ccDteMin, state.ccDteMax)}
 
     <div class="scan-row">
@@ -977,12 +991,8 @@ function renderCC() {
     </div>
     <div class="results-header">
       <div class="results-label">Candidates</div>
-      <div class="view-btns">
-        <button class="view-btn ${ccView === 'cards' ? 'active' : ''}" onclick="setCCView('cards')">Cards</button>
-        <button class="view-btn ${ccView === 'table' ? 'active' : ''}" onclick="setCCView('table')">Table</button>
-      </div>
     </div>
-    ${ccView === 'cards' ? renderCCCards(ccResults) : renderCCTable(ccResults)}
+    ${renderCCTable(ccResults)}
     ` : ccScanned && ccResults.length === 0 && !ccError ? `
     <div class="empty">
       <div style="font-size:28px;margin-bottom:10px">∅</div>
@@ -2396,17 +2406,23 @@ function setTab(t) {
 function setView(v) { state.view = v; renderMain(); }
 
 function addTicker() {
-  const sel = document.getElementById('tickerSelect');
-  if (sel && sel.value && !state.tickers.includes(sel.value)) {
-    state.tickers = [...state.tickers, sel.value];
+  const input = document.getElementById('tickerInput');
+  if (!input) return;
+  const val = input.value.trim().toUpperCase();
+  if (val && !state.tickers.includes(val)) {
+    state.tickers = [...state.tickers, val];
+    input.value = '';
     renderMain();
     fetchEarnings(state.tickers, 'csp');
   }
 }
 function addCCTicker() {
-  const sel = document.getElementById('ccTickerSelect');
-  if (sel && sel.value && !state.ccTickers.includes(sel.value)) {
-    state.ccTickers = [...state.ccTickers, sel.value];
+  const input = document.getElementById('ccTickerInput');
+  if (!input) return;
+  const val = input.value.trim().toUpperCase();
+  if (val && !state.ccTickers.includes(val)) {
+    state.ccTickers = [...state.ccTickers, val];
+    input.value = '';
     renderMain();
     fetchEarnings(state.ccTickers, 'cc');
   }
@@ -2595,18 +2611,18 @@ function attachListeners() {
   document.getElementById('maxResults')?.addEventListener('change', e => { state.maxResults = parseInt(e.target.value) || 5; });
   document.getElementById('ccSafety')?.addEventListener('change', e => { state.ccSafety = e.target.value; renderMain(); });
   document.getElementById('ccMaxResults')?.addEventListener('change', e => { state.ccMaxResults = parseInt(e.target.value) || 5; });
-  document.getElementById('ccDteMin')?.addEventListener('change', e => { state.ccDteMin = parseInt(e.target.value) || 30; });
-  document.getElementById('ccDteMax')?.addEventListener('change', e => { state.ccDteMax = parseInt(e.target.value) || 45; });
+  document.getElementById('ccDteMin')?.addEventListener('change', e => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 0) state.ccDteMin = v; });
+  document.getElementById('ccDteMax')?.addEventListener('change', e => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 1) state.ccDteMax = v; });
 
 
   document.getElementById('dteMin')?.addEventListener('change', e => {
     const val = parseInt(e.target.value);
-    if (!isNaN(val) && val >= 1) state.dteMin = val;
-});
-document.getElementById('dteMax')?.addEventListener('change', e => {
+    if (!isNaN(val) && val >= 0) state.dteMin = val;
+  });
+  document.getElementById('dteMax')?.addEventListener('change', e => {
     const val = parseInt(e.target.value);
     if (!isNaN(val) && val >= 1) state.dteMax = val;
-});
+  });
 
 document.getElementById('journalAcctSel')?.addEventListener('change', e => {
   state.journalAccountId = e.target.value ? parseInt(e.target.value) : null;

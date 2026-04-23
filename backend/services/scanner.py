@@ -25,11 +25,36 @@ def _safe_int(val, default=0):
     except (TypeError, ValueError):
         return default
 
+# Base cushion thresholds for standard 30-45 DTE options
 SAFETY_CUSHION_MAP = {
     "conservative": 0.10,
     "balanced":     0.08,
     "aggressive":   0.05,
 }
+
+def _get_cushion_min(safety: str, dte: int) -> float:
+    """
+    Return the minimum OTM cushion required for a given safety level and DTE.
+    Uses square root scaling so safety levels stay meaningfully differentiated
+    even at low DTE — linear scaling collapses all levels together near 0DTE.
+
+    Scaling formula: cushion = base * sqrt(min(dte, 45) / 45)
+
+    Example at 2 DTE:
+      Conservative: 10% * sqrt(2/45) = 2.1% OTM required
+      Balanced:      8% * sqrt(2/45) = 1.7% OTM required
+      Aggressive:    5% * sqrt(2/45) = 1.1% OTM required
+
+    Example at 45 DTE (full cushion):
+      Conservative: 10% * sqrt(1.0) = 10.0% OTM required
+      Balanced:      8% * sqrt(1.0) =  8.0% OTM required
+      Aggressive:    5% * sqrt(1.0) =  5.0% OTM required
+
+    Floor: 0.5% minimum to avoid deep ITM junk.
+    """
+    base  = SAFETY_CUSHION_MAP.get(safety, 0.08)
+    scale = math.sqrt(min(dte, 45) / 45)
+    return max(base * scale, 0.005)  # floor at 0.5%
 
 # Minimum liquidity thresholds — skip options with no real market
 MIN_VOLUME           = 0     # don't filter by volume (can be 0 pre-market)
@@ -75,15 +100,16 @@ def _realistic_premium(row) -> float:
 
 
 def _scan_csp_ticker(ticker, price, expirations, dte_min, dte_max,
-                     cushion_min, collateral_budget, max_results):
+                     collateral_budget, max_results, safety='balanced'):
     stock = yf.Ticker(ticker)
     ticker_results = []
 
     for exp in expirations:
-        exp_date = datetime.strptime(exp, "%Y-%m-%d")
-        dte = (exp_date - datetime.today()).days
+        from datetime import date as _date
+        exp_date = datetime.strptime(exp, "%Y-%m-%d").date()
+        dte = (exp_date - _date.today()).days
         if dte < dte_min or dte > dte_max:
-            continue
+            continue  # dte_min=0 allows same-day expiry
         try:
             chain = stock.option_chain(exp)
             puts  = chain.puts
@@ -103,14 +129,20 @@ def _scan_csp_ticker(ticker, price, expirations, dte_min, dte_max,
             if premium <= 0:
                 continue
 
-            cushion = (price - strike) / price
+            # Skip options paying less than $0.05/share ($5/contract) — not worth selling
+            if premium < 0.05:
+                continue
+
+            cushion     = (price - strike) / price
+            cushion_min = _get_cushion_min(safety, dte)
             if cushion < cushion_min:
                 continue
 
             collateral   = strike * 100
             credit       = round(premium * 100, 2)
             roi          = credit / collateral
-            annual_yield = roi * (365 / dte)
+            # For 0DTE treat as 1 day for annualisation to avoid division by zero
+            annual_yield = roi * (365 / max(dte, 1))
 
             ticker_results.append({
                 "ticker":           ticker,
@@ -121,8 +153,10 @@ def _scan_csp_ticker(ticker, price, expirations, dte_min, dte_max,
                 "ask":              _safe_float(row.get("ask")),
                 "volume":           _safe_int(row.get("volume")),
                 "open_interest":    _safe_int(row.get("openInterest")),
+                "iv_pct":           round(_safe_float(row.get("impliedVolatility")) * 100, 1),
                 "DTE":              dte,
                 "cushion_pct":      round(cushion * 100, 2),
+                "safety":           safety,
                 "roi_pct":          round(roi * 100, 2),
                 "annual_yield_pct": round(annual_yield * 100, 2),
                 "collateral":       round(collateral, 2),
@@ -130,19 +164,25 @@ def _scan_csp_ticker(ticker, price, expirations, dte_min, dte_max,
                 "expiration":       exp,
             })
 
-    ticker_results.sort(key=lambda x: x["annual_yield_pct"], reverse=True)
+    # For 0-1 DTE sort by credit amount (raw dollar value) — annual yield is misleading
+    # For normal DTE sort by annual yield as usual
+    has_short_dte = any(r["DTE"] <= 1 for r in ticker_results)
+    if has_short_dte:
+        ticker_results.sort(key=lambda x: x["credit"], reverse=True)
+    else:
+        ticker_results.sort(key=lambda x: x["annual_yield_pct"], reverse=True)
     return ticker_results[:max_results]
 
 
 def run_csp_scan(
     tickers: List[str],
-    dte_min: int = 30,
+    dte_min: int = 0,
     dte_max: int = 45,
     max_results: int = 5,
     collateral_budget: float = 10000,
     safety: str = "balanced",
 ) -> List[dict]:
-    cushion_min     = SAFETY_CUSHION_MAP.get(safety, 0.08)
+    cushion_min     = None  # computed per-expiry via _get_cushion_min
     results         = []
     prices          = {}
     expirations_map = {}
@@ -163,7 +203,7 @@ def run_csp_scan(
             executor.submit(
                 _scan_csp_ticker,
                 ticker, prices[ticker], expirations_map[ticker],
-                dte_min, dte_max, cushion_min, collateral_budget, max_results
+                dte_min, dte_max, collateral_budget, max_results, safety
             ): ticker
             for ticker in prices
         }
@@ -178,15 +218,16 @@ def run_csp_scan(
 
 
 def _scan_cc_ticker(ticker, price, expirations, dte_min, dte_max,
-                    cushion_min, max_results):
+                    max_results, safety='balanced'):
     stock = yf.Ticker(ticker)
     ticker_results = []
 
     for exp in expirations:
-        exp_date = datetime.strptime(exp, "%Y-%m-%d")
-        dte = (exp_date - datetime.today()).days
+        from datetime import date as _date
+        exp_date = datetime.strptime(exp, "%Y-%m-%d").date()
+        dte = (exp_date - _date.today()).days
         if dte < dte_min or dte > dte_max:
-            continue
+            continue  # dte_min=0 allows same-day expiry
         try:
             chain = stock.option_chain(exp)
             calls = chain.calls
@@ -203,14 +244,19 @@ def _scan_cc_ticker(ticker, price, expirations, dte_min, dte_max,
             if premium <= 0:
                 continue
 
-            cushion = (strike - price) / price
+            # Skip options paying less than $0.05/share ($5/contract)
+            if premium < 0.05:
+                continue
+
+            cushion     = (strike - price) / price
+            cushion_min = _get_cushion_min(safety, dte)
             if cushion < cushion_min:
                 continue
 
             collateral   = price * 100
             credit       = round(premium * 100, 2)
             roi          = credit / collateral
-            annual_yield = roi * (365 / dte)
+            annual_yield = roi * (365 / max(dte, 1))
 
             ticker_results.append({
                 "ticker":           ticker,
@@ -221,8 +267,10 @@ def _scan_cc_ticker(ticker, price, expirations, dte_min, dte_max,
                 "ask":              _safe_float(row.get("ask")),
                 "volume":           _safe_int(row.get("volume")),
                 "open_interest":    _safe_int(row.get("openInterest")),
+                "iv_pct":           round(_safe_float(row.get("impliedVolatility")) * 100, 1),
                 "DTE":              dte,
                 "cushion_pct":      round(cushion * 100, 2),
+                "safety":           safety,
                 "roi_pct":          round(roi * 100, 2),
                 "annual_yield_pct": round(annual_yield * 100, 2),
                 "collateral":       round(collateral, 2),
@@ -236,12 +284,12 @@ def _scan_cc_ticker(ticker, price, expirations, dte_min, dte_max,
 
 def run_cc_scan(
     tickers: List[str],
-    dte_min: int = 30,
+    dte_min: int = 0,
     dte_max: int = 45,
     max_results: int = 5,
     safety: str = "balanced",
 ) -> List[dict]:
-    cushion_min     = SAFETY_CUSHION_MAP.get(safety, 0.08)
+    cushion_min     = None  # computed per-expiry via _get_cushion_min
     results         = []
     prices          = {}
     expirations_map = {}
@@ -262,7 +310,7 @@ def run_cc_scan(
             executor.submit(
                 _scan_cc_ticker,
                 ticker, prices[ticker], expirations_map[ticker],
-                dte_min, dte_max, cushion_min, max_results
+                dte_min, dte_max, max_results, safety
             ): ticker
             for ticker in prices
         }

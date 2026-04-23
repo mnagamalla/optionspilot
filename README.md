@@ -11,21 +11,24 @@ A full-stack personal options trading platform for wheel strategy traders. Scan 
 ## Features
 
 ### 📊 CSP Scanner
-- Scan any ticker universe for cash-secured put candidates using live options chain data
+Scan any ticker universe for cash-secured put candidates using live options chain data.
 - Filter by collateral budget, DTE window, safety preference (Conservative / Balanced / Aggressive)
-- Results grouped by ticker, sorted by annualized yield — Table and Cards view
+- Results grouped by ticker, sorted by annualized yield
+- Table and Cards view
 - Earnings calendar inline — color-coded warnings when earnings fall within your DTE window
 - Position sizing calculator — enter strike + premium to see max contracts, capital used, break-even, ROI
 
 ### 📈 Covered Call Scanner
-- Scan stocks you own for OTM covered call opportunities
-- Same filters, views, earnings calendar, and position sizer as CSP scanner
+Scan stocks you own for OTM covered call opportunities.
+- Same filters and views as the CSP scanner
+- Earnings calendar and position sizer included
 
 ### 🌊 Unusual Flow Scanner
+Detect institutional activity across your watchlist and the broader market.
 - Volume spike detection (Vol/OI ratio: 1.5x / 3x / 5x thresholds)
 - Block trade detection ($25k / $50k / $100k minimum notional)
 - Bullish/bearish sentiment per ticker with signal badges
-- Sortable columns — click any header to sort
+- Sortable columns — click any header
 - Results grouped by ticker with per-group notional and sentiment summary
 
 ### 📒 Journal (Robinhood Integration)
@@ -35,35 +38,49 @@ Full trade history synced directly from your Robinhood account.
 - P&L cards: All Time / YTD / This Month / This Week
 - Stacked bar chart of monthly premium by option type
 - Cumulative P&L line chart
-- Per-ticker drill-down with individual trade history
-- Click ticker row to expand live mark-to-market pricing + unrealized P&L per leg
+- Per-ticker drill-down — click any card to see individual trades
+- Click a ticker row to expand live mark-to-market pricing with unrealized P&L
+- Win rate stats by trade type
 
-**Trade Log** — full history with roll detection badges
+**Trade Log**
+- Full trade history with roll detection badges
+- Inline roll labels on buy-to-close + sell-to-open pairs
 
-**Rolls Tab** — auto-detected roll pairs with net premium summary
+**Rolls Tab**
+- Auto-detected roll pairs grouped with net premium
+- Credit vs debit roll summary
 
-**Cost Basis Tracker** — per-lot adjusted basis after CC premiums, buffer % alerts
+**Cost Basis Tracker**
+- Per-lot adjusted basis after CC premiums collected
+- Buffer % alerts (🔴 <2%, 🟡 <5%, 🟢 safe)
+- Live mark-to-market prices
 
-**Wheel Cycles** — auto-detected CSP → Assignment → CC progression
+**Wheel Cycles**
+- Auto-detected CSP → Assignment → CC progression
+- Full cycle P&L tracking
 
-**Account Value** — live stock market value + open options MTM (spreads netted), persistent in header
+**Account Value**
+- Live market value of stock positions (excludes EBAY, PYPL)
+- Open options mark-to-market (spread pairs netted)
+- Persistent header tile — visible throughout the Journal
 
 **Utilities**
 - CSV export: trades, monthly P&L, cost basis lots
 - Account renaming (inline edit)
 - Assignment detector with one-click lot creation
 
-### 🤖 Ask OptionsPilot (AI Chat)
-- Powered by Claude (Anthropic API)
+### 🤖 Ask MyTradingBot
+AI-powered Q&A about your portfolio, powered by Claude (Anthropic API).
 - Your live journal data injected automatically into every question
 - Suggested follow-up questions after each answer
+- Ask anything: *"Which positions should I write a CC on this week?"* / *"What's my YTD premium collected on PLTR?"*
 
 ---
 
 ## Project Structure
 
 ```
-optionspilot/
+mytradingbot/
 ├── backend/
 │   ├── main.py                  ← FastAPI entry point
 │   ├── db/
@@ -84,17 +101,24 @@ optionspilot/
 │       ├── flow_scanner.py      ← Unusual flow detection
 │       └── robinhood.py         ← robin_stocks wrapper
 ├── frontend/
-│   └── index.html               ← Complete single-file frontend
+│   └── index.html               ← Complete single-file frontend (~112KB)
 ├── tests/
-│   └── test_api.py
+│   ├── test_api.py
+│   └── test_scanner.py
 ├── .env.example                 ← Copy to .env and fill in credentials
 ├── requirements.txt
+├── pyproject.toml
 └── README.md
 ```
 
 ---
 
 ## Setup
+
+### Prerequisites
+- Python 3.9+
+- Robinhood account (for Journal sync)
+- Anthropic API key (for Ask tab) — get one at https://console.anthropic.com
 
 ### 1. Clone and create virtual environment
 
@@ -115,8 +139,9 @@ pip install -r requirements.txt
 
 ```bash
 cp .env.example .env
-# Edit .env with your credentials
 ```
+
+Edit `.env` with your credentials:
 
 ```env
 RH_USERNAME=your_robinhood_email@example.com
@@ -125,15 +150,15 @@ DB_PATH=trading_bot.db
 ANTHROPIC_API_KEY=sk-ant-your-key-here
 ```
 
-Get your Anthropic API key at: https://console.anthropic.com
-
 ### 4. Start the server
 
 ```bash
 uvicorn backend.main:app --reload --port 8000
 ```
 
-Open **http://localhost:8000** — API docs at **http://localhost:8000/docs**
+Open **http://localhost:8000** in your browser.
+
+API docs available at: **http://localhost:8000/docs**
 
 ---
 
@@ -141,8 +166,10 @@ Open **http://localhost:8000** — API docs at **http://localhost:8000/docs**
 
 1. Go to the **Journal** tab
 2. Click **⟳ Sync Robinhood**
-3. Enter your MFA code when prompted (device token saved after first time)
-4. All trades, positions, and P&L populate automatically
+3. Enter your MFA code when prompted (first time only — device token saved after)
+4. All your trades, positions, and P&L populate automatically
+
+> **Note:** Positions transferred from other brokerages won't appear via API. Add those manually using SQL inserts into the `stock_lots` table.
 
 ---
 
@@ -153,6 +180,7 @@ Open **http://localhost:8000** — API docs at **http://localhost:8000/docs**
 | POST | `/scan/csp` | Cash-secured put scan |
 | POST | `/scan/cc` | Covered call scan |
 | GET | `/flow/scan` | Unusual options flow |
+| GET | `/flow/tickers` | Default ticker universes |
 | GET | `/journal/accounts` | List accounts |
 | PATCH | `/journal/accounts/{id}` | Rename account |
 | POST | `/journal/sync` | Sync from Robinhood |
@@ -191,12 +219,24 @@ Open **http://localhost:8000** — API docs at **http://localhost:8000/docs**
 
 ---
 
+## Roadmap
+
+- [ ] Scheduled auto-sync (daily at market open)
+- [ ] PostgreSQL support for cloud deployment
+- [ ] Rate limiting on scan endpoints
+- [ ] Mobile-responsive layout
+- [ ] Manual lot entry UI (for RSU/transferred positions)
+- [ ] Put wall visualization on Unusual Flow page
+- [ ] 0 DTE filter toggle and signal confidence scoring
+
+---
+
 ## License
 
-Apache License — see [LICENSE](LICENSE) for details.
+Apache 2.0 License — see [LICENSE](LICENSE) for details.
 
 ---
 
 ## Disclaimer
 
-This tool is for personal use and educational purposes only. It is not financial advice. Options trading involves significant risk of loss. Always conduct your own research before making investment decisions.
+This tool is for personal use and educational purposes only. It is not financial advice. Options trading involves significant risk of loss. Always conduct your own research and consult a licensed financial advisor before making investment decisions.

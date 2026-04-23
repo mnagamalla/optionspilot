@@ -13,6 +13,7 @@ def scan_csp(req: ScanRequest):
     """
     Run a cash-secured put scan with the given parameters.
     Returns candidates sorted by annual yield descending.
+    collateral_budget filters out strikes you cannot afford — defaults to $100,000 if not set.
     """
     if req.dte_min >= req.dte_max:
         raise HTTPException(
@@ -33,7 +34,7 @@ def scan_csp(req: ScanRequest):
         dte_min=req.dte_min,
         dte_max=req.dte_max,
         max_results=req.max_results,
-        collateral_budget=req.collateral_budget,
+        collateral_budget=req.collateral_budget or 100_000,
         safety=req.safety,
     )
 
